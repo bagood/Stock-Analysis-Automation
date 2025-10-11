@@ -85,39 +85,42 @@ def develop_models_for_selected_kode(selected_kode: list):
     failed_stocks = []
 
     for i, kode in enumerate(selected_kode):
-        logging.info(f"Processing Ticker: {kode} ({i+1}/{len(selected_kode)})")
-        
-        logging.info(f"Preparing data for {kode} with 10 and 15-day trend targets")
-        prepared_data = prepare_data_for_modelling(
-            emiten=kode, 
-            start_date='2021-01-01', 
-            end_date='', 
-            target_column='Close', 
-            rolling_windows=[10, 15], 
-            download=True
-        )
+        try:
+            logging.info(f"Processing Ticker: {kode} ({i+1}/{len(selected_kode)})")
+            
+            logging.info(f"Preparing data for {kode} with 10 and 15-day trend targets")
+            prepared_data = prepare_data_for_modelling(
+                emiten=kode, 
+                start_date='2021-01-01', 
+                end_date='', 
+                target_column='Close', 
+                rolling_windows=[10, 15], 
+                download=True
+            )
 
-        if prepared_data.empty:
-            logging.warning(f"Data preparation for {kode} resulted in an empty DataFrame. Skipping model development.")
-            continue
-        
-        logging.info(f"Developing model for '{kode}' - 10 Day Trend")
-        model_10_days, train_metrics_10_days, test_metrics_10_days = develop_model(prepared_data, 'Upcoming 10 Days Trend')
-        
-        logging.info(f"Developing model for '{kode}' - 15 Day Trend")
-        model_15_days, train_metrics_15_days, test_metrics_15_days = develop_model(prepared_data, 'Upcoming 15 Days Trend')
+            if prepared_data.empty:
+                logging.warning(f"Data preparation for {kode} resulted in an empty DataFrame. Skipping model development.")
+                continue
+            
+            logging.info(f"Developing model for '{kode}' - 10 Day Trend")
+            model_10_days, train_metrics_10_days, test_metrics_10_days = develop_model(prepared_data, 'Upcoming 10 Days Trend')
+            
+            logging.info(f"Developing model for '{kode}' - 15 Day Trend")
+            model_15_days, train_metrics_15_days, test_metrics_15_days = develop_model(prepared_data, 'Upcoming 15 Days Trend')
 
-        logging.info(f"Saving models and collating performance metrics for {kode}")
-        _save_developed_model(model_10_days, kode, '10dd')
-        _save_developed_model(model_15_days, kode, '15dd')
+            logging.info(f"Saving models and collating performance metrics for {kode}")
+            _save_developed_model(model_10_days, kode, '10dd')
+            _save_developed_model(model_15_days, kode, '15dd')
 
-        logging.info(f"Measuring model performances on training and testing sets")
-        train_test_10_days = _combine_train_test_metrics_into_single_df(kode, train_metrics_10_days, test_metrics_10_days)
-        train_test_15_days = _combine_train_test_metrics_into_single_df(kode, train_metrics_15_days, test_metrics_15_days)
-        all_model_performances_10_days = pd.concat((all_model_performances_10_days, train_test_10_days), ignore_index=True)
-        all_model_performances_15_days = pd.concat((all_model_performances_15_days, train_test_15_days), ignore_index=True)
-        
-        logging.info(f"Finished processing for Ticker: {kode}")
+            logging.info(f"Measuring model performances on training and testing sets")
+            train_test_10_days = _combine_train_test_metrics_into_single_df(kode, train_metrics_10_days, test_metrics_10_days)
+            train_test_15_days = _combine_train_test_metrics_into_single_df(kode, train_metrics_15_days, test_metrics_15_days)
+            all_model_performances_10_days = pd.concat((all_model_performances_10_days, train_test_10_days), ignore_index=True)
+            all_model_performances_15_days = pd.concat((all_model_performances_15_days, train_test_15_days), ignore_index=True)
+            
+            logging.info(f"Finished processing for Ticker: {kode}")
+        except:
+            logging.warning(f"Failed processing for Ticker: {kode}")
 
     developed_date = datetime.now().date().strftime('%Y%m%d')
     filename_10dd = f'database/modelPerformances/modelPerformance-10dd-{developed_date}.csv'
@@ -188,14 +191,14 @@ def make_forecasts_using_the_developed_models(forecast_dd: int, development_date
 
     logging.info('Starting the forecasting using the loaded models on the prepared forecasting data')
     forecasting_data[f'Forecast - Upcoming {forecast_dd} Days Trend'] = forecasting_data.apply(
-        lambda row: model_store[row['Kode']].predict(row[feature_columns].values.reshape(1, -1))[0] if row['Kode'] in model_store else np.nan,
+        lambda row: model_store[row['Kode']].predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(model_store[row['Kode']].classes_).index('Up Trend')] if row['Kode'] in model_store else np.nan,
         axis=1
     )
 
     forecast_path = f'database/forecastedStocks/forecast-{forecast_dd}dd-{development_date}.csv'
     logging.info(f'Saving the forecast data to {forecast_path}')
 
-    selected_columns = ['Kode', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume', f'Forecast - Upcoming {forecast_dd} Days Trend']
+    selected_columns = ['Kode', 'Date', f'Forecast - Upcoming {forecast_dd} Days Trend']
     forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns] \
                         .to_csv(forecast_path, index=False)
 
