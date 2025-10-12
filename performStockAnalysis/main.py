@@ -1,3 +1,4 @@
+import os
 import pickle
 import logging
 import numpy as np
@@ -97,13 +98,18 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
                 model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 
                 logging.info(f"Saving models and collating performance metrics for {emiten}")
-                _save_developed_model(model, emiten, f'{window}dd')
+                _save_developed_model(model, label_type, emiten, f'{window}dd')
 
                 logging.info(f"Measuring model performances on training and testing sets")
                 train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
-            
+                if label_type == 'median_gain':
+                    train_test['Threshold'] = prepared_data[f'Threshold Median Gain {window}dd'].values[0]
+        
                 filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
-                train_test.to_csv(filename, mode='a', index=False)        
+                if os.path.exists(filename):
+                    train_test.to_csv(filename, mode='a', index=False, header=False) 
+                else:
+                    train_test.to_csv(filename, index=False)
                 
             logging.info(f"Finished processing for Ticker: {emiten}")
         except:
@@ -120,7 +126,7 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
 
     return
 
-def make_forecasts_using_the_developed_models(forecast_dd: int, development_date: str, min_test_gini: float):
+def forecast_using_the_developed_models(forecast_dd: int, label_type: str, development_date: str, min_test_gini: float):
     """
     Orchestrates the forecasting pipeline for stocks that exceeds the minimum test gini performance.
     
@@ -130,17 +136,18 @@ def make_forecasts_using_the_developed_models(forecast_dd: int, development_date
         min_test_gini (float): The minimum gini performance for the model's testing performance
     """
     logging.info(f"Starting the Process of {forecast_dd} Days Forecasting")
+    model_performance_dd_path = f'database/modelPerformances/{to_camel(label_type)}/{forecast_dd}dd-{development_date}.csv'
     
-    model_performance_dd_path = f'database/modelPerformances/modelPerformance-{forecast_dd}dd-{development_date}.csv'
     logging.info(f"Loading the data from {model_performance_dd_path}")
-    all_model_performances_days = pd.read_csv(model_performance_dd_path) \
-                                            .sort_values('Test - Gini', ascending=False)
+    all_model_performances_days = pd.read_csv(model_performance_dd_path)
     
-    logging.info(f'Select stock with the model performance on testing data that is greater than {min_test_gini}')
+    logging.info(f'Select stock with a performance on testing data greater than {min_test_gini}')
     selected_model_performances_days = all_model_performances_days[all_model_performances_days['Test - Gini'] >= min_test_gini] \
+                                            .sort_values('Test - Gini', ascending=False) \
                                             .reset_index(drop=True)
+
     selected_emiten = selected_model_performances_days['Kode'].unique()
-    logging.info(f"Selected a total of {len(selected_emiten)} stocks that exceed the minimum model performance")
+    logging.info(f"Selected a total of {len(selected_emiten)} stocks that exceed the minimum model's performance")
     
     logging.info('Prepare all stock data to be used for forecasting')
     forecasting_data = prepare_data_for_forecasting(
@@ -152,30 +159,36 @@ def make_forecasts_using_the_developed_models(forecast_dd: int, development_date
     )
 
     feature_file = 'modelDevelopment/technical_indicator_features.txt'
-    logging.info(f"Loading feature names from '{feature_file}'")
+    logging.info(f'Loading feature names from {feature_file}')
     with open(feature_file, "r") as file:
         feature_columns = [line.strip() for line in file]
-    logging.info(f"Loaded {len(feature_columns)} features")
+    logging.info(f'Loaded {len(feature_columns)} features')
 
-    logging.info(f"Loading the developed models for {len(selected_emiten)} stocks")
+    logging.info(f'Loading the developed models for {len(selected_emiten)} stocks')
     model_store = {}
     for emiten in selected_emiten:
-        model_path = f'database/developedModels/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
+        model_path = f'database/developedModels/{to_camel(label_type)}/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
         with open(model_path, 'rb') as file:
             loaded_model = pickle.load(file)
         model_store[emiten] = loaded_model
-    logging.info(f"Sucessfully load {len(model_store.keys())} out of {len(selected_emiten)} models")
+    logging.info(f'Sucessfully loaded {len(model_store.keys())} out of {len(selected_emiten)} models')
 
     logging.info('Starting the forecasting using the loaded models on the prepared forecasting data')
-    forecasting_data[f'Forecast - Upcoming {forecast_dd} Days Trend'] = forecasting_data.apply(
-        lambda row: model_store[row['Kode']].predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(model_store[row['Kode']].classes_).index('Up Trend')] if row['Kode'] in model_store else np.nan,
+    if label_type == 'linear_trend':
+        positive_label = 'Up Trend'
+    elif label_type == 'median_gain':
+        positive_label = 'High Gain'
+
+    forecast_column_name = f'Forecast {positive_label} {forecast_dd}dd'
+    forecasting_data[forecast_column_name] = forecasting_data.apply(
+        lambda row: model_store[row['Kode']].predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(model_store[row['Kode']].classes_).index(positive_label)] if row['Kode'] in model_store else np.nan,
         axis=1
     )
 
-    forecast_path = f'database/forecastedStocks/forecast-{forecast_dd}dd-{development_date}.csv'
+    forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'
     logging.info(f'Saving the forecast data to {forecast_path}')
 
-    selected_columns = ['Kode', 'Date', f'Forecast - Upcoming {forecast_dd} Days Trend']
+    selected_columns = ['Kode', 'Date', forecast_column_name]
     forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns] \
                         .to_csv(forecast_path, index=False)
 
