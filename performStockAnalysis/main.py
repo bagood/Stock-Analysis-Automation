@@ -2,6 +2,7 @@ import pickle
 import logging
 import numpy as np
 import pandas as pd
+from camel_converter import to_camel
 from datetime import datetime, timedelta
 
 from modelDevelopment.main import develop_model
@@ -15,7 +16,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-def select_kode_to_model(n_kode_saham_limit: int = 0) -> np.array:
+def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     """
     Selects the most actively traded stocks from a master list.
 
@@ -33,39 +34,19 @@ def select_kode_to_model(n_kode_saham_limit: int = 0) -> np.array:
         np.array: An array of selected stock ticker strings
     """
     logging.info("Starting stock selection process based on recent trading volume")
-    
-    if n_kode_saham_limit == 0:
-        data_saham = pd.read_excel('performStockAnalysis/daftar_saham.xlsx')
-        logging.info("Loaded the full list of stocks from 'daftar_saham.xlsx'")
-    else:
-        data_saham = pd.read_excel('performStockAnalysis/daftar_saham.xlsx').head(n_kode_saham_limit)
-        logging.info(f"Loaded a limited list of {n_kode_saham_limit} stocks")
-
+    data_saham = pd.read_excel('performStockAnalysis/daftar_saham.xlsx')
     start_date = (datetime.now().date() - timedelta(days=45)).strftime('%Y-%m-%d')
-    all_average_volume = pd.DataFrame()
-    logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
-
-    for i, kode in enumerate(data_saham['Kode'].values):
-        logging.info(f"({i+1}/{len(data_saham)}) Fetching volume for ticker: {kode}")
-        temp_data = _download_stock_data(f'{kode}', start_date, '')
-        all_average_volume = pd.concat((
-            all_average_volume,
-            pd.DataFrame({
-                'Kode': [kode], 
-                'Average Volume': [temp_data['Volume'].mean()]
-            })
-        ), ignore_index=True)
-            
-    n_selected_kode = int(np.ceil(len(all_average_volume) * 0.5))
-    logging.info(f"Calculated selection threshold. Selecting top {n_selected_kode} most traded stocks")
     
-    selected_kode = all_average_volume.sort_values('Average Volume', ascending=False) \
-                                      .head(n_selected_kode)['Kode'].values
-    logging.info(f"Stock selection complete. Selected tickers: {list(selected_kode)}")
+    logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
+    data_saham['Averge Volume'] = data_saham['Kode'].apply(lambda val: _download_stock_data(f'{emiten}', start_date, ''))
+            
+    threshold = np.nanquantile(data_saham['Averge Volume'].values, quantile_threshold)
+    selected_emiten = data_saham.loc[data_saham['Average Volume'] >= threshold, 'Kode'].values
+    logging.info(f"Stock selection complete. Selected ticker total of {len(selected_emiten)}")
 
-    return selected_kode
+    return selected_emiten
 
-def develop_models_for_selected_kode(selected_kode: list):
+def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, rolling_windows: list):
     """
     Orchestrates the model development pipeline for a list of selected stocks.
 
@@ -76,63 +57,59 @@ def develop_models_for_selected_kode(selected_kode: list):
     4. Aggregate the performance metrics of all models into summary DataFrames.
 
     Args:
-        selected_kode (list): A list of stock ticker symbols to process.
+        selected_emiten (list): A list of stock ticker symbols to process.
     """
-    logging.info(f"Starting Bulk Model Development for {len(selected_kode)} Selected Stocks")
+    logging.info(f"Starting Bulk Model Development for {len(selected_emiten)} Selected Stocks")
     
-    all_model_performances_10_days = pd.DataFrame()
-    all_model_performances_15_days = pd.DataFrame()
+    if label_type == 'linear_trend':
+        target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
+        positive_label = 'Up Trend'
+        negative_label = 'Down Trend'
+    elif label_type == 'median_gain':
+        target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
+        positive_label = 'High Gain'
+        negative_label = 'Low Gain'
+    
+    developed_date = datetime.now().date().strftime('%Y%m%d')
     failed_stocks = []
 
-    for i, kode in enumerate(selected_kode):
+    for i, emiten in enumerate(selected_emiten):
         try:
-            logging.info(f"Processing Ticker: {kode} ({i+1}/{len(selected_kode)})")
+            logging.info(f"Processing Emiten: {emiten} ({i+1}/{len(selected_emiten)})")
             
-            logging.info(f"Preparing data for {kode} with 10 and 15-day trend targets")
+            logging.info(f"Preparing data for {emiten}")
             prepared_data = prepare_data_for_modelling(
-                emiten=kode, 
+                emiten=emiten, 
                 start_date='2021-01-01', 
                 end_date='', 
-                target_column='Close', 
-                rolling_windows=[10, 15], 
+                target_column='Close',
+                label_type=label_type,
+                rolling_windows=rolling_windows, 
                 download=True
             )
 
             if prepared_data.empty:
-                logging.warning(f"Data preparation for {kode} resulted in an empty DataFrame. Skipping model development.")
+                logging.warning(f"Data preparation for {emiten} resulted in an empty DataFrame. Skipping model development.")
                 continue
             
-            logging.info(f"Developing model for '{kode}' - 10 Day Trend")
-            model_10_days, train_metrics_10_days, test_metrics_10_days = develop_model(prepared_data, 'Upcoming 10 Days Trend')
-            
-            logging.info(f"Developing model for '{kode}' - 15 Day Trend")
-            model_15_days, train_metrics_15_days, test_metrics_15_days = develop_model(prepared_data, 'Upcoming 15 Days Trend')
+            for window, target_column in zip(rolling_windows, target_columns):
+                logging.info(f"Developing model for '{emiten}' - {window} Day Rolling Window")
+                model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 
-            logging.info(f"Saving models and collating performance metrics for {kode}")
-            _save_developed_model(model_10_days, kode, '10dd')
-            _save_developed_model(model_15_days, kode, '15dd')
+                logging.info(f"Saving models and collating performance metrics for {emiten}")
+                _save_developed_model(model, emiten, f'{window}dd')
 
-            logging.info(f"Measuring model performances on training and testing sets")
-            train_test_10_days = _combine_train_test_metrics_into_single_df(kode, train_metrics_10_days, test_metrics_10_days)
-            train_test_15_days = _combine_train_test_metrics_into_single_df(kode, train_metrics_15_days, test_metrics_15_days)
-            all_model_performances_10_days = pd.concat((all_model_performances_10_days, train_test_10_days), ignore_index=True)
-            all_model_performances_15_days = pd.concat((all_model_performances_15_days, train_test_15_days), ignore_index=True)
+                logging.info(f"Measuring model performances on training and testing sets")
+                train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
             
-            logging.info(f"Finished processing for Ticker: {kode}")
+                filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
+                train_test.to_csv(filename, mode='a', index=False)        
+                
+            logging.info(f"Finished processing for Ticker: {emiten}")
         except:
-            logging.warning(f"Failed processing for Ticker: {kode}")
+            logging.warning(f"Failed processing for Ticker: {emiten}")
 
-    developed_date = datetime.now().date().strftime('%Y%m%d')
-    filename_10dd = f'database/modelPerformances/modelPerformance-10dd-{developed_date}.csv'
-    filename_15dd = f'database/modelPerformances/modelPerformance-15dd-{developed_date}.csv'
-
-    all_model_performances_10_days.to_csv(filename_10dd, index=False)
-    logging.info(f"Succefully saved model performances on forecasting upcoming 10 days trend to {filename_10dd}")
-
-    all_model_performances_15_days.to_csv(filename_15dd, index=False)
-    logging.info(f"Succefully saved model performances on forecasting upcoming 15 days trend to {filename_15dd}")
-
-    failed_stock_path = f'database/modelPerformances/failedStocks-{developed_date}.txt'
+    failed_stock_path = f'database/modelPerformances/{to_camel(label_type)}/failedStocks-{developed_date}.txt'
     logging.info(f"Saving stocks that are failed being processed to '{failed_stock_path }'...")
     with open(failed_stock_path, "w") as file:
         for failed_stock in failed_stocks:
@@ -162,12 +139,12 @@ def make_forecasts_using_the_developed_models(forecast_dd: int, development_date
     logging.info(f'Select stock with the model performance on testing data that is greater than {min_test_gini}')
     selected_model_performances_days = all_model_performances_days[all_model_performances_days['Test - Gini'] >= min_test_gini] \
                                             .reset_index(drop=True)
-    selected_kode = selected_model_performances_days['Kode'].unique()
-    logging.info(f"Selected a total of {len(selected_kode)} stocks that exceed the minimum model performance")
+    selected_emiten = selected_model_performances_days['Kode'].unique()
+    logging.info(f"Selected a total of {len(selected_emiten)} stocks that exceed the minimum model performance")
     
     logging.info('Prepare all stock data to be used for forecasting')
     forecasting_data = prepare_data_for_forecasting(
-        list_of_emitens=selected_kode, 
+        list_of_emitens=selected_emiten, 
         start_date='2021-01-01', 
         end_date='', 
         rolling_window=forecast_dd, 
@@ -180,14 +157,14 @@ def make_forecasts_using_the_developed_models(forecast_dd: int, development_date
         feature_columns = [line.strip() for line in file]
     logging.info(f"Loaded {len(feature_columns)} features")
 
-    logging.info(f"Loading the developed models for {len(selected_kode)} stocks")
+    logging.info(f"Loading the developed models for {len(selected_emiten)} stocks")
     model_store = {}
-    for kode in selected_kode:
-        model_path = f'database/developedModels/{kode}-{forecast_dd}dd-{development_date}.pkl'         
+    for emiten in selected_emiten:
+        model_path = f'database/developedModels/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
         with open(model_path, 'rb') as file:
             loaded_model = pickle.load(file)
-        model_store[kode] = loaded_model
-    logging.info(f"Sucessfully load {len(model_store.keys())} out of {len(selected_kode)} models")
+        model_store[emiten] = loaded_model
+    logging.info(f"Sucessfully load {len(model_store.keys())} out of {len(selected_emiten)} models")
 
     logging.info('Starting the forecasting using the loaded models on the prepared forecasting data')
     forecasting_data[f'Forecast - Upcoming {forecast_dd} Days Trend'] = forecasting_data.apply(

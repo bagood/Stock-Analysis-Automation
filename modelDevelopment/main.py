@@ -186,4 +186,4 @@ def develop_model(prepared_data: pd.DataFrame, target_column: str, positive_labe
 
     logging.info(f"Model Development for '{target_column}' Finished Successfully")
     
-    return model, train_metrics, test_metrics, train_feature, train_target
+    return model, train_metrics, test_metrics

@@ -40,15 +40,13 @@ def _calculate_gini(model: any, target_true: np.array, target_pred_proba: np.arr
         float: The calculated Gini coefficient, or 0.0 if AUC cannot be calculated
     """
     try:
-        positive_class_true = (target_true.T[0] == positive_label).astype(int)
+        positive_class_true = (target_true == positive_label).astype(int)
         
         positive_class_index = np.where(model.classes_ == positive_label)[0][0]
         positive_class_prob = target_pred_proba[:, positive_class_index]
-        
         auc = roc_auc_score(positive_class_true, positive_class_prob)
         gini = 2 * auc - 1
     except (ValueError, IndexError):
-        logging.warning("Could not calculate Gini coefficient (likely only one class in target). Returning 0.0")
         gini = 0.0
 
     return gini
