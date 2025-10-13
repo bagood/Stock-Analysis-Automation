@@ -37,6 +37,10 @@ def _download_stock_data(emiten: str, start_date: str, end_date: str) -> pd.Data
             data.drop(columns=[col], inplace=True)
 
     data.reset_index(inplace=True)
-    data['Date'] = data['Date'].dt.date
+    
+    try:
+        data['Date'] = data['Date'].dt.date
+    except:
+        pass
 
     return data

@@ -39,9 +39,9 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     start_date = (datetime.now().date() - timedelta(days=45)).strftime('%Y-%m-%d')
     
     logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
-    data_saham['Averge Volume'] = data_saham['Kode'].apply(lambda val: _download_stock_data(f'{emiten}', start_date, ''))
-            
-    threshold = np.nanquantile(data_saham['Averge Volume'].values, quantile_threshold)
+    data_saham['Average Volume'] = data_saham['Kode'].apply(lambda val: np.mean(_download_stock_data(val, start_date, '')['Volume']))
+    
+    threshold = np.nanquantile(data_saham['Average Volume'].values, quantile_threshold)
     selected_emiten = data_saham.loc[data_saham['Average Volume'] >= threshold, 'Kode'].values
     logging.info(f"Stock selection complete. Selected ticker total of {len(selected_emiten)}")
 
