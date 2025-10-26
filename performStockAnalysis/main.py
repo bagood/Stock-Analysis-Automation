@@ -136,8 +136,12 @@ def forecast_using_the_developed_models(forecast_dd: int, label_type: str, devel
         min_test_gini (float): The minimum gini performance for the model's testing performance
     """
     logging.info(f"Starting the Process of {forecast_dd} Days Forecasting")
+    if label_type == 'linearTrend':
+        positive_label = 'Up Trend'
+    elif label_type == 'medianGain':
+        positive_label = 'High Gain'
+
     model_performance_dd_path = f'database/modelPerformances/{to_camel(label_type)}/{forecast_dd}dd-{development_date}.csv'
-    
     logging.info(f"Loading the data from {model_performance_dd_path}")
     all_model_performances_days = pd.read_csv(model_performance_dd_path)
     
@@ -148,50 +152,49 @@ def forecast_using_the_developed_models(forecast_dd: int, label_type: str, devel
 
     selected_emiten = selected_model_performances_days['Kode'].unique()
     logging.info(f"Selected a total of {len(selected_emiten)} stocks that exceed the minimum model's performance")
-    
-    logging.info('Prepare all stock data to be used for forecasting')
-    forecasting_data = prepare_data_for_forecasting(
-        list_of_emitens=selected_emiten, 
-        start_date='2021-01-01', 
-        end_date='', 
-        rolling_window=forecast_dd, 
-        download=True
-    )
 
     feature_file = 'modelDevelopment/technical_indicator_features.txt'
     logging.info(f'Loading feature names from {feature_file}')
     with open(feature_file, "r") as file:
         feature_columns = [line.strip() for line in file]
-    logging.info(f'Loaded {len(feature_columns)} features')
+    logging.info(f'Loaded {len(feature_columns)} features')    
 
-    logging.info(f'Loading the developed models for {len(selected_emiten)} stocks')
-    model_store = {}
     for emiten in selected_emiten:
-        model_path = f'database/developedModels/{to_camel(label_type)}/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
-        with open(model_path, 'rb') as file:
-            loaded_model = pickle.load(file)
-        model_store[emiten] = loaded_model
-    logging.info(f'Sucessfully loaded {len(model_store.keys())} out of {len(selected_emiten)} models')
+        try:
+            logging.info('Prepare all stock data to be used for forecasting')
+            forecasting_data = prepare_data_for_forecasting(
+                emiten=emiten, 
+                start_date='2021-01-01', 
+                end_date='', 
+                rolling_window=forecast_dd, 
+                download=True
+            )
 
-    logging.info('Starting the forecasting using the loaded models on the prepared forecasting data')
-    if label_type == 'linear_trend':
-        positive_label = 'Up Trend'
-    elif label_type == 'median_gain':
-        positive_label = 'High Gain'
+            logging.info(f'Loading the developed {forecast_dd} days model for {emiten}')
+            model_path = f'database/developedModels/{to_camel(label_type)}/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
+            with open(model_path, 'rb') as file:
+                loaded_model = pickle.load(file)
+            logging.info(f'Sucessfully loaded the developed {forecast_dd} days model for {emiten}')
 
-    forecast_column_name = f'Forecast {positive_label} {forecast_dd}dd'
-    forecasting_data[forecast_column_name] = forecasting_data.apply(
-        lambda row: model_store[row['Kode']].predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(model_store[row['Kode']].classes_).index(positive_label)] if row['Kode'] in model_store else np.nan,
-        axis=1
-    )
+            logging.info(f'Start forecasting using the loaded {forecast_dd} days model on the prepared forecasting data for {emiten}')
+            forecast_column_name = f'Forecast {positive_label} {forecast_dd}dd'
+            forecasting_data[forecast_column_name] = forecasting_data.apply(
+                lambda row: loaded_model.predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(loaded_model.classes_).index(positive_label)],
+                axis=1
+            )
 
-    forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'
-    logging.info(f'Saving the forecast data to {forecast_path}')
+            logging.info(f'Saving the {forecast_dd} days forecast result for {emiten}')
+            selected_columns = ['Kode', 'Date', forecast_column_name]
+            forecasting_data_to_save = forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns]
+            forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'            
+            if os.path.exists(forecast_path):
+                forecasting_data_to_save.to_csv(forecast_path, mode='a', index=False, header=False) 
+            else:
+                forecasting_data_to_save.to_csv(forecast_path, index=False)
 
-    selected_columns = ['Kode', 'Date', forecast_column_name]
-    forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns] \
-                        .to_csv(forecast_path, index=False)
+            logging.info(f"Finished the process of {forecast_dd} Days forecasting for {emiten}")
 
-    logging.info(f"Finished the Process of {forecast_dd} Days Forecasting")
+        except:
+            logging.warning(f"Failed in process of {forecast_dd} days forecasting for {emiten}")
 
     return

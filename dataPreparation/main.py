@@ -67,7 +67,7 @@ def prepare_data_for_modelling(emiten: str, start_date: str, end_date: str, targ
 
     return data
 
-def prepare_data_for_forecasting(list_of_emitens: list, start_date: str, end_date: str, rolling_window: int, download: bool = True) -> pd.DataFrame:
+def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str, rolling_window: int, download: bool = True) -> pd.DataFrame:
     """
     Orchestrates the full data preparation pipeline for making forecasts using the developed machine learning model
 
@@ -86,29 +86,26 @@ def prepare_data_for_forecasting(list_of_emitens: list, start_date: str, end_dat
     Returns:
         pd.DataFrame: A clean, feature-rich DataFrame ready for model training and evaluation
     """
-    logging.info(f"Starting Data Preparation Pipeline for {len(list_of_emitens)} Tickers")
+    logging.info(f"Starting Data Preparation Pipeline for {emiten}")
     
-    all_forecasting_data = pd.DataFrame()
-    
-    for emiten in list_of_emitens:
-        if download:
-            logging.info(f"Downloading stock data for ticker {emiten}.JK")
-            data = _download_stock_data(emiten, start_date, end_date)
-    
-        else:
-            logging.info("Loading data from local 'dummy_data.csv' file.")
-            data = pd.read_csv('dataPreparation/dummy_data.csv')
-        
-        logging.info("Generating technical indicators as features")
-        data = generate_all_technical_indicators(data)
-        
-        logging.info("Dropping all rows without any NaN values to create a clean forecasting dataset")
-        forecasting_data = data.tail(rolling_window)
+    if download:
+        logging.info(f"Downloading stock data for ticker {emiten}.JK")
+        data = _download_stock_data(emiten, start_date, end_date)
 
-        forecasting_data['Kode'] = emiten
-        all_forecasting_data = pd.concat((all_forecasting_data, forecasting_data))
+    else:
+        logging.info("Loading data from local 'dummy_data.csv' file.")
+        data = pd.read_csv('dataPreparation/dummy_data.csv')
+        
+    logging.info("Generating technical indicators as features")
+    data = generate_all_technical_indicators(data)
     
-    all_forecasting_data.reset_index(inplace=True)    
+    logging.info("Dropping all rows without any NaN values to create a clean forecasting dataset")
+    forecasting_data = data.tail(rolling_window)
+    
+    logging.info("Added the emiten's code and date to the forecasting data")
+    forecasting_data['Kode'] = emiten
+    forecasting_data.reset_index(inplace=True)
+
     logging.info(f"Succesfully Prepare the Forecasting Data")
 
-    return all_forecasting_data
+    return forecasting_data
