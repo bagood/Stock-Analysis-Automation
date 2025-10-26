@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  dotnet-jupyter:
+    build: .
+    container_name: stock-analysis-automation
+    image: dotnet-8-jupyter-lab
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+    tty: true
