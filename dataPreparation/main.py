@@ -5,6 +5,7 @@ from technicalIndicators.main import generate_all_technical_indicators
 from dataPreparation.helper import _download_stock_data
 from dataPreparation.helper_linear_trend import _generate_all_linreg_gradients
 from dataPreparation.helper_median_gain import _generate_all_median_gain
+from dataPreparation.helper_max_loss import _generate_all_max_loss
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +28,7 @@ def prepare_data_for_modelling(emiten: str, start_date: str, end_date: str, targ
         emiten (str): The stock ticker symbol
         start_date (str): The start date for the data ('YYYY-MM-DD')
         end_date (str): The end date for the data ('YYYY-MM-DD')
-        target_column (str): The price column (e.g., 'Close') to use for median price gain calculation
+        target_column (str): The price column (e.g., 'Close') to use for label g
         rolling_windows (list): A list of integers for the future trend windows (e.g., [5, 10])
         download (bool): If True, downloads data from Yahoo Finance. If False, loads a local dummy file
 
@@ -62,6 +63,14 @@ def prepare_data_for_modelling(emiten: str, start_date: str, end_date: str, targ
 
         logging.info('Dropping rows containing missing target variables')
         data.dropna(subset=[f'Median Gain {window}dd' for window in rolling_windows], inplace=True)
+    
+    elif label_type == 'max_loss':
+        for window in rolling_windows:
+            logging.info(f"Generating the {window}dd max loss as target variables")
+            data = _generate_all_max_loss(data, target_column, window)
+
+        logging.info('Dropping rows containing missing target variables')
+        data.dropna(subset=[f'Max Loss {window}dd' for window in rolling_windows], inplace=True)
     
     logging.info(f"Succesfully Executed the Data Preparation Pipeline for {emiten}")
 
