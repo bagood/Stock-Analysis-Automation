@@ -22,12 +22,12 @@ def _initialize_repeatedly_used_variables(label_type: str, rolling_windows: list
         positive_label = 'High Gain'
         negative_label = 'Low Gain'
     
-    elif label_type in ['median_loss', 'medianLoss']:
+    elif label_type in ['max_loss', 'maxLoss']:
         if rolling_windows != None:
-            target_columns = [f'Median Loss {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Median Loss {window}dd' for window in rolling_windows]
-        positive_label = 'High Loss'
-        negative_label = 'Low Loss'
+            target_columns = [f'Max Loss {window}dd' for window in rolling_windows]
+            threshold_columns = [f'Threshold Max Loss {window}dd' for window in rolling_windows]
+        positive_label = 'Low Risk'
+        negative_label = 'High Risk'
     
     return (target_columns, threshold_columns, positive_label, negative_label)
 

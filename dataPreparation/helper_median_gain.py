@@ -54,7 +54,7 @@ def _generate_all_median_gain(data: pd.DataFrame, target_column: str, rolling_wi
         rolling_window (int): The number of future days to look at for the median gain
 
     Returns:
-        pd.DataFrame: The DataFrame with the new future trend column added
+        pd.DataFrame: The DataFrame with the new future median gain column added
     """
     column_name = f'Median Gain {rolling_window}dd'
     median_gain, threshold = _generate_median_gain(data, target_column, rolling_window)
