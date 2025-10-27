@@ -103,7 +103,7 @@ def initialize_and_fit_model(train_feature: np.array, train_target: np.array, pr
 
     logging.info("Fitting BayesSearchCV... This may take some time")
     hyper_tune_search.fit(train_feature, train_target)
-    logging.info("Hyperparameter tuning complete.")
+    logging.info("Hyperparameter tuning complete")
 
     logging.info(f"Best parameters found: {hyper_tune_search.best_params_}")
     logging.info(f"Best cross-validated {scoring_method}: {hyper_tune_search.best_score_:.4f}")

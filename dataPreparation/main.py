@@ -41,7 +41,7 @@ def prepare_data_for_modelling(emiten: str, start_date: str, end_date: str, targ
         data = _download_stock_data(emiten, start_date, end_date)
  
     else:
-        logging.info("Loading data from local 'dummy_data.csv' file.")
+        logging.info("Loading data from local 'dummy_data.csv' file")
         data = pd.read_csv('dataPreparation/dummy_data.csv')
     
     logging.info("Generating technical indicators as features")
@@ -93,7 +93,7 @@ def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str, ro
         data = _download_stock_data(emiten, start_date, end_date)
 
     else:
-        logging.info("Loading data from local 'dummy_data.csv' file.")
+        logging.info("Loading data from local 'dummy_data.csv' file")
         data = pd.read_csv('dataPreparation/dummy_data.csv')
         
     logging.info("Generating technical indicators as features")

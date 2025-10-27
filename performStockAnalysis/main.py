@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from modelDevelopment.main import develop_model
 from dataPreparation.helper import _download_stock_data
 from dataPreparation.main import prepare_data_for_modelling, prepare_data_for_forecasting
-from performStockAnalysis.helper import _combine_train_test_metrics_into_single_df, _save_developed_model
+from performStockAnalysis.helper import _initialize_repeatedly_used_variables, _combine_train_test_metrics_into_single_df, _save_developed_model, _save_csv_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,17 +19,17 @@ logging.basicConfig(
 
 def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     """
-    Selects the most actively traded stocks from a master list.
+    Selects the most actively traded stocks from a master list
 
     This function reads a list of stock tickers from an Excel file, downloads
     their trading volume over the last 45 days, and filters for the top 50%
     most liquid stocks based on average daily volume. This ensures that models
-    are built only for stocks with sufficient trading activity.
+    are built only for stocks with sufficient trading activity
 
     Args:
         n_kode_saham_limit (int, optional): The number of stocks to process from the
                                           top of the Excel list. If 0, all stocks
-                                          are considered. Defaults to 0.
+                                          are considered. Defaults to 0
 
     Returns:
         np.array: An array of selected stock ticker strings
@@ -49,27 +49,20 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
 
 def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, rolling_windows: list):
     """
-    Orchestrates the model development pipeline for a list of selected stocks.
+    Orchestrates the model development pipeline for a list of selected stocks
 
     For each stock ticker, this function will:
-    1. Prepare the data by generating features and target variables.
-    2. Develop two distinct models (for 10-day and 15-day future trends).
-    3. Save each trained model to a file.
-    4. Aggregate the performance metrics of all models into summary DataFrames.
+    1. Prepare the data by generating features and target variables
+    2. Develop n distinct models for each rolling window
+    3. Save each trained model to a file
+    4. Aggregate the performance metrics of all models into summary DataFrames
 
     Args:
-        selected_emiten (list): A list of stock ticker symbols to process.
+        selected_emiten (list): A list of stock ticker symbols to process
     """
     logging.info(f"Starting Bulk Model Development for {len(selected_emiten)} Selected Stocks")
     
-    if label_type == 'linear_trend':
-        target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
-        positive_label = 'Up Trend'
-        negative_label = 'Down Trend'
-    elif label_type == 'median_gain':
-        target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
-        positive_label = 'High Gain'
-        negative_label = 'Low Gain'
+    target_columns, threshold_columns, positive_label, negative_label = _initialize_repeatedly_used_variables(label_type, rolling_windows)
     
     developed_date = datetime.now().date().strftime('%Y%m%d')
     failed_stocks = []
@@ -89,11 +82,7 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
                 download=True
             )
 
-            if prepared_data.empty:
-                logging.warning(f"Data preparation for {emiten} resulted in an empty DataFrame. Skipping model development.")
-                continue
-            
-            for window, target_column in zip(rolling_windows, target_columns):
+            for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
                 logging.info(f"Developing model for '{emiten}' - {window} Day Rolling Window")
                 model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 
@@ -102,16 +91,13 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
 
                 logging.info(f"Measuring model performances on training and testing sets")
                 train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
-                if label_type == 'median_gain':
-                    train_test['Threshold'] = prepared_data[f'Threshold Median Gain {window}dd'].values[0]
+                train_test['Threshold'] = prepared_data[threshold_column].values[0]
         
                 filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
-                if os.path.exists(filename):
-                    train_test.to_csv(filename, mode='a', index=False, header=False) 
-                else:
-                    train_test.to_csv(filename, index=False)
+                _ = _save_csv_file(train_test, filename)
                 
             logging.info(f"Finished processing for Ticker: {emiten}")
+
         except:
             logging.warning(f"Failed processing for Ticker: {emiten}")
 
@@ -128,7 +114,7 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
 
 def forecast_using_the_developed_models(forecast_dd: int, label_type: str, development_date: str, min_test_gini: float):
     """
-    Orchestrates the forecasting pipeline for stocks that exceeds the minimum test gini performance.
+    Orchestrates the forecasting pipeline for stocks that exceeds the minimum test gini performance
     
     Args:
         forecast_dd (int): The desired upcoming days to be forcasted
@@ -136,10 +122,7 @@ def forecast_using_the_developed_models(forecast_dd: int, label_type: str, devel
         min_test_gini (float): The minimum gini performance for the model's testing performance
     """
     logging.info(f"Starting the Process of {forecast_dd} Days Forecasting")
-    if label_type == 'linearTrend':
-        positive_label = 'Up Trend'
-    elif label_type == 'medianGain':
-        positive_label = 'High Gain'
+    _, _, positive_label, negative_label = _initialize_repeatedly_used_variables(label_type)
 
     model_performance_dd_path = f'database/modelPerformances/{to_camel(label_type)}/{forecast_dd}dd-{development_date}.csv'
     logging.info(f"Loading the data from {model_performance_dd_path}")
@@ -186,11 +169,8 @@ def forecast_using_the_developed_models(forecast_dd: int, label_type: str, devel
             logging.info(f'Saving the {forecast_dd} days forecast result for {emiten}')
             selected_columns = ['Kode', 'Date', forecast_column_name]
             forecasting_data_to_save = forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns]
-            forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'            
-            if os.path.exists(forecast_path):
-                forecasting_data_to_save.to_csv(forecast_path, mode='a', index=False, header=False) 
-            else:
-                forecasting_data_to_save.to_csv(forecast_path, index=False)
+            forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'  
+            _ = _save_csv_file(forecasting_data_to_save, forecast_path)
 
             logging.info(f"Finished the process of {forecast_dd} Days forecasting for {emiten}")
 

@@ -1,7 +1,36 @@
+import os
 import pickle
 import pandas as pd
 from datetime import datetime
 from camel_converter import to_camel
+
+def _initialize_repeatedly_used_variables(label_type: str, rolling_windows: list = None):
+    target_columns = None
+    threshold_columns = None
+
+    if label_type in ['linear_trend', 'linearTrend']:
+        if rolling_windows != None:
+            target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
+            threshold_columns = [f'Threshold Linear Trend {window}dd' for window in rolling_windows]
+        positive_label = 'Up Trend'
+        negative_label = 'Down Trend'
+
+    elif label_type in ['median_gain', 'medianGain']:
+        if rolling_windows != None:
+            target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
+            threshold_columns = [f'Threshold Median Gain {window}dd' for window in rolling_windows]
+        positive_label = 'High Gain'
+        negative_label = 'Low Gain'
+    
+    elif label_type in ['median_loss', 'medianLoss']:
+        if rolling_windows != None:
+            target_columns = [f'Median Loss {window}dd' for window in rolling_windows]
+            threshold_columns = [f'Threshold Median Loss {window}dd' for window in rolling_windows]
+        positive_label = 'High Loss'
+        negative_label = 'Low Loss'
+    
+    return (target_columns, threshold_columns, positive_label, negative_label)
+
 
 def _combine_train_test_metrics_into_single_df(kode: str, train_metrics: dict, test_metrics: dict) -> pd.DataFrame:
     """
@@ -27,7 +56,7 @@ def _combine_train_test_metrics_into_single_df(kode: str, train_metrics: dict, t
 
     return train_test_df
 
-def _save_developed_model(model, label_type, kode: str, model_type: str):
+def _save_developed_model(model, label_type: str, kode: str, model_type: str):
     """
     Saves a trained model object to a file using pickle.
 
@@ -45,4 +74,12 @@ def _save_developed_model(model, label_type, kode: str, model_type: str):
     with open(filename, 'wb') as file:
         pickle.dump(model, file)
     
+    return
+
+def _save_csv_file(data: pd.DataFrame, filename: str):
+    if os.path.exists(filename):
+        data.to_csv(filename, mode='a', index=False, header=False) 
+    else:
+        data.to_csv(filename, index=False)
+
     return
