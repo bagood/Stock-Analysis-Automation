@@ -21,7 +21,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     """
     Selects the most actively traded stocks from a master list
 
-    This function reads a list of stock tickers from an Excel file, downloads
+    This function reads a list of stock emitens from an Excel file, downloads
     their trading volume over the last 45 days, and filters for the top 50%
     most liquid stocks based on average daily volume. This ensures that models
     are built only for stocks with sufficient trading activity
@@ -32,10 +32,10 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
                                           are considered. Defaults to 0
 
     Returns:
-        np.array: An array of selected stock ticker strings
+        np.array: An array of selected stock emiten strings
     """
     logging.info("Starting stock selection process based on recent trading volume")
-    data_saham = pd.read_excel('performStockAnalysis/daftar_saham.xlsx')
+    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv')
     start_date = (datetime.now().date() - timedelta(days=45)).strftime('%Y-%m-%d')
     
     logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
@@ -43,7 +43,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     
     threshold = np.nanquantile(data_saham['Average Volume'].values, quantile_threshold)
     selected_emiten = data_saham.loc[data_saham['Average Volume'] >= threshold, 'Kode'].values
-    logging.info(f"Stock selection complete. Selected ticker total of {len(selected_emiten)}")
+    logging.info(f"Stock selection complete. Selected emiten total of {len(selected_emiten)}")
 
     return selected_emiten
 
@@ -51,14 +51,14 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
     """
     Orchestrates the model development pipeline for a list of selected stocks
 
-    For each stock ticker, this function will:
+    For each stock emiten, this function will:
     1. Prepare the data by generating features and target variables
     2. Develop n distinct models for each rolling window
     3. Save each trained model to a file
     4. Aggregate the performance metrics of all models into summary DataFrames
 
     Args:
-        selected_emiten (list): A list of stock ticker symbols to process
+        selected_emiten (list): A list of stock emiten symbols to process
     """
     logging.info(f"Starting Bulk Model Development for {len(selected_emiten)} Selected Stocks")
     
@@ -78,8 +78,7 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
                 end_date='', 
                 target_column='Close',
                 label_type=label_type,
-                rolling_windows=rolling_windows, 
-                download=True
+                rolling_windows=rolling_windows
             )
 
             for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
@@ -96,10 +95,10 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, r
                 filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
                 _ = _save_csv_file(train_test, filename)
                 
-            logging.info(f"Finished processing for Ticker: {emiten}")
+            logging.info(f"Finished processing for Emiten: {emiten}")
 
         except:
-            logging.warning(f"Failed processing for Ticker: {emiten}")
+            logging.warning(f"Failed processing for Emiten: {emiten}")
 
     failed_stock_path = f'database/modelPerformances/{to_camel(label_type)}/failedStocks-{developed_date}.txt'
     logging.info(f"Saving stocks that are failed being processed to '{failed_stock_path }'...")
@@ -149,8 +148,7 @@ def forecast_using_the_developed_models(forecast_dd: int, label_type: str, devel
                 emiten=emiten, 
                 start_date='2021-01-01', 
                 end_date='', 
-                rolling_window=forecast_dd, 
-                download=True
+                rolling_window=forecast_dd
             )
 
             logging.info(f'Loading the developed {forecast_dd} days model for {emiten}')
