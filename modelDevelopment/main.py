@@ -21,7 +21,7 @@ def split_data_to_train_val_test(data: pd.DataFrame, feature_columns: list, targ
     This function implements a time-based split crucial for financial forecasting:
     - Training Set: All data preceding the test set
     - Validation Set (for Hyperparameter Tuning): The last 30 days of the training set
-    - Test Set: The most recent 30 days of data with valid targets
+    - Test Set: The most recent days worth 10% of the overall training data
 
     Args:
         data (pd.DataFrame): The complete DataFrame containing features and the target
@@ -35,7 +35,7 @@ def split_data_to_train_val_test(data: pd.DataFrame, feature_columns: list, targ
                - test_feature (np.array): Features for the test set
                - test_target (np.array): Target for the test set
                - predefined_split_index (PredefinedSplit): An index for cross-validation
-                 that designates the last 30 days of training data as the validation set
+                 that designates the recent days worth 10% of the overall training data as the validation set
     """
     test_length = np.ceil(len(data) * 0.1).astype(int)
     test_data = data.tail(test_length)
@@ -58,7 +58,7 @@ def split_data_to_train_val_test(data: pd.DataFrame, feature_columns: list, targ
 
 def initialize_and_fit_model(train_feature: np.array, train_target: np.array, predefined_split_index: PredefinedSplit) -> any:
     """
-    Initializes, tunes, and fits a CatBoost Classifier using Bayesian Optimization
+    Initializes, fits, and tunes a CatBoost Classifier using Bayesian Optimization
 
     This function uses BayesSearchCV to efficiently search for the optimal
     hyperparameters for a CatBoost model. It validates performance using a
@@ -85,8 +85,7 @@ def initialize_and_fit_model(train_feature: np.array, train_target: np.array, pr
         'iterations': Integer(150, 300),
         'l2_leaf_reg': Real(0.5, 3.0)
     }
-    logging.info(f"Hyperparameter search space defined: {search_spaces}")
- 
+    
     scoring_method = 'roc_auc'
     if len(np.unique(train_target[-30:])) == 1:
         scoring_method = 'accuracy'

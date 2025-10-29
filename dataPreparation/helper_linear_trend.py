@@ -4,14 +4,10 @@ from sklearn.linear_model import LinearRegression
     
 def _generate_linreg_gradient(target_data: np.array) -> float:
     """
-    (Internal Helper) Calculates the slope of a data series using linear regression
-
-    This function fits a line to the provided data points and returns the slope
-    (gradient). This slope represents the trend of the data over the given period
-    The intercept is forced to zero by centering the data, focusing solely on the trend
+    (Internal Helper) Calculates the slope of a numpy arrays using linear regression
 
     Args:
-        target_data (np.array): A numpy array of numerical data (e.g., closing prices)
+        target_data (np.array): A numpy array of numerical data
 
     Returns:
         float: The calculated slope (gradient) of the regression line
@@ -33,8 +29,7 @@ def _bin_linreg_gradients(val: float) -> str:
         val (float): The slope value from the linear regression calculation
 
     Returns:
-        str: 'Up Trend' for positive or zero slopes, 'Down Trend' for negative slopes,
-             or NaN if the input is NaN
+        str: 'Up Trend' for positive or zero slopes, 'Down Trend' for negative slopes, or NaN if the input is NaN
     """
     if np.isnan(val):
         return val
@@ -47,14 +42,9 @@ def _generate_all_linreg_gradients(data: pd.DataFrame, target_column: str, rolli
     """
     (Internal Helper) Generates a future trend label for each day based on a rolling window
 
-    For each day in the dataset, this function looks at the *next* `rolling_window`
-    days of the `target_column`, calculates the trend (slope) for that future period,
-    and assigns a categorical label ('Up Trend' or 'Down Trend') to the current day
-    This resulting column is the target variable for the machine learning model
-
     Args:
         data (pd.DataFrame): The input DataFrame containing stock data
-        target_column (str): The name of the column to analyze (e.g., 'Close')
+        target_column (str): The name of the column to analyze
         rolling_window (int): The number of future days to look at for the trend
 
     Returns:
