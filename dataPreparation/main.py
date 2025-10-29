@@ -34,7 +34,7 @@ def prepare_data_for_modelling(emiten: str, start_date: str, end_date: str, targ
     """
     logging.info(f"Starting Data Preparation Pipeline for Emiten: {emiten}")
 
-    logging.info(f"Downloading stock data for emiten {emiten}.JK")
+    logging.info(f"Downloading stock data for emiten {emiten}")
     data = _download_stock_data(emiten, start_date, end_date)
  
     logging.info("Generating technical indicators as features")
@@ -85,14 +85,15 @@ def prepare_data_for_modelling_per_industry(industry: str, start_date: str, end_
         logging.info("Generating technical indicators as features")
         data = generate_all_technical_indicators(data)
 
-        logging.info(f"Generating {'and '.join([f'{window}dd' for window in rolling_windows])} {' '.join(label_type.split('_'))} as target variables")
-        data = _generate_labels_based_on_label_type(data, target_column, rolling_windows, label_type)
-
         logging.info("Appending the currently generated emiten data to all emitens data")
         all_industry_data = pd.concat((all_industry_data, data))
 
+    logging.info(f"Generating {'and '.join([f'{window}dd' for window in rolling_windows])} {' '.join(label_type.split('_'))} as target variables")
+    all_industry_data = _generate_labels_based_on_label_type(all_industry_data, target_column, rolling_windows, label_type)
+    all_industry_data.sort_index(inplace=True)
+    
     logging.info(f"Succesfully Executed the Data Preparation Pipeline for Industry {industry}")
-
+    
     return all_industry_data
 
 def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str, rolling_window: int, download: bool = True) -> pd.DataFrame:

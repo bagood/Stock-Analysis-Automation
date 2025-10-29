@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from modelDevelopment.main import develop_model
 from dataPreparation.helper import _download_stock_data
-from dataPreparation.main import prepare_data_for_modelling, prepare_data_for_forecasting
+from dataPreparation.main import prepare_data_for_modelling, prepare_data_for_forecasting, prepare_data_for_modelling_per_industry
 from performStockAnalysis.helper import _initialize_repeatedly_used_variables, _combine_train_test_metrics_into_single_df, _save_developed_model, _save_csv_file
 
 logging.basicConfig(
@@ -46,6 +46,70 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     logging.info(f"Stock selection complete. Selected emiten total of {len(selected_emiten)}")
 
     return selected_emiten
+
+def develop_models_for_industries(industries: list, label_type: str, rolling_windows: list):
+    """
+    Orchestrates the model development pipeline for a list of selected stocks
+
+    For each stock emiten, this function will:
+    1. Prepare the data by generating features and target variables
+    2. Develop n distinct models for each rolling window
+    3. Save each trained model to a file
+    4. Aggregate the performance metrics of all models into summary DataFrames
+
+    Args:
+        selected_emiten (list): A list of stock emiten symbols to process
+    """
+    logging.info(f"Starting Bulk Model Development for {len(industries)} Selected Industries")
+    
+    target_columns, threshold_columns, positive_label, negative_label = _initialize_repeatedly_used_variables(label_type, rolling_windows)
+    
+    developed_date = datetime.now().date().strftime('%Y%m%d')
+    failed_stocks = []
+
+    for i, industry in enumerate(industries):
+        try:
+            logging.info(f"Processing Industry: {industry} ({i+1}/{len(industries)})")
+            
+            logging.info(f"Preparing data for {industry}")
+            prepared_data = prepare_data_for_modelling_per_industry(
+                industry=industry, 
+                start_date='2021-01-01', 
+                end_date='', 
+                target_column='Close',
+                label_type=label_type,
+                rolling_windows=rolling_windows
+            )
+
+            for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
+                logging.info(f"Developing model for '{industry}' - {window} Day Rolling Window")
+                model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
+
+                logging.info(f"Saving models and collating performance metrics for {industry}")
+                _save_developed_model(model, label_type, industry, f'{window}dd')
+
+                logging.info(f"Measuring model performances on training and testing sets")
+                train_test = _combine_train_test_metrics_into_single_df(industry, train_metrics, test_metrics)
+                train_test['Threshold'] = prepared_data[threshold_column].values[0]
+        
+                filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
+                _ = _save_csv_file(train_test, filename)
+                
+            logging.info(f"Finished processing for Industry: {industry}")
+
+        except:
+            logging.warning(f"Failed processing for Industry: {industry}")
+
+    failed_stock_path = f'database/modelPerformances/{to_camel(label_type)}/failedStocks-{developed_date}.txt'
+    logging.info(f"Saving stocks that are failed being processed to '{failed_stock_path }'...")
+    with open(failed_stock_path, "w") as file:
+        for failed_stock in failed_stocks:
+            file.write(failed_stock + "\n")
+    logging.info("List of failed stocks saved successfully")
+
+    logging.info("Bulk Model Development Complete")
+
+    return
 
 def develop_models_for_selected_emiten(selected_emiten: list, label_type: str, rolling_windows: list):
     """

@@ -37,10 +37,11 @@ def split_data_to_train_val_test(data: pd.DataFrame, feature_columns: list, targ
                - predefined_split_index (PredefinedSplit): An index for cross-validation
                  that designates the last 30 days of training data as the validation set
     """
-    train_length = len(data) - 30
+    test_length = np.ceil(len(data) * 0.1).astype(int)
+    test_data = data.tail(test_length)
+    train_length = len(data) - test_length
     train_data = data.head(train_length)
-    test_data = data.tail(30)
-    logging.info(f"Training set size: {train_length}, Test set size: 30")
+    logging.info(f"Training set size: {train_length}, Test set size: {test_length}")
 
     train_feature = train_data[feature_columns].values
     train_target = train_data[target_column].values
@@ -49,7 +50,7 @@ def split_data_to_train_val_test(data: pd.DataFrame, feature_columns: list, targ
     logging.info("Succesfully splitted both training and testing data into its corresponding feature and target data")
 
     split_index = np.full(len(train_feature), -1, dtype=int)
-    split_index[-30:] = 0
+    split_index[-test_length:] = 0
     predefined_split_index = PredefinedSplit(test_fold=split_index)
     logging.info("Sucessfully created PredefinedSplit for time-series cross-validation")
 
