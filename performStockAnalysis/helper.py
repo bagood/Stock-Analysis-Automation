@@ -4,32 +4,37 @@ import pandas as pd
 from datetime import datetime
 from camel_converter import to_camel
 
-def _initialize_repeatedly_used_variables(label_type: str, rolling_windows: list = None):
-    target_columns = None
-    threshold_columns = None
+def _initialize_repeatedly_used_variables(label_types: list, rolling_windows: list = None):
+    list_of_variables = []
+    for label_type in label_types:
+        target_columns = None
+        threshold_columns = None
 
-    if label_type in ['linear_trend', 'linearTrend']:
-        if rolling_windows != None:
-            target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Linear Trend {window}dd' for window in rolling_windows]
-        positive_label = 'Up Trend'
-        negative_label = 'Down Trend'
+        if label_type in ['linear_trend', 'linearTrend']:
+            if rolling_windows != None:
+                target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
+                threshold_columns = [f'Threshold Linear Trend {window}dd' for window in rolling_windows]
+            positive_label = 'Up Trend'
+            negative_label = 'Down Trend'
 
-    elif label_type in ['median_gain', 'medianGain']:
-        if rolling_windows != None:
-            target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Median Gain {window}dd' for window in rolling_windows]
-        positive_label = 'High Gain'
-        negative_label = 'Low Gain'
-    
-    elif label_type in ['max_loss', 'maxLoss']:
-        if rolling_windows != None:
-            target_columns = [f'Max Loss {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Max Loss {window}dd' for window in rolling_windows]
-        positive_label = 'Low Risk'
-        negative_label = 'High Risk'
-    
-    return (target_columns, threshold_columns, positive_label, negative_label)
+        elif label_type in ['median_gain', 'medianGain']:
+            if rolling_windows != None:
+                target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
+                threshold_columns = [f'Threshold Median Gain {window}dd' for window in rolling_windows]
+            positive_label = 'High Gain'
+            negative_label = 'Low Gain'
+        
+        elif label_type in ['max_loss', 'maxLoss']:
+            if rolling_windows != None:
+                target_columns = [f'Max Loss {window}dd' for window in rolling_windows]
+                threshold_columns = [f'Threshold Max Loss {window}dd' for window in rolling_windows]
+            positive_label = 'Low Risk'
+            negative_label = 'High Risk'
+        
+        variables = [target_columns, threshold_columns, positive_label, negative_label]
+        list_of_variables.append(variables)
+        
+    return list_of_variables
 
 
 def _combine_train_test_metrics_into_single_df(kode: str, train_metrics: dict, test_metrics: dict) -> pd.DataFrame:

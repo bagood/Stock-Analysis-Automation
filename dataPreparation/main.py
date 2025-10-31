@@ -10,7 +10,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-def prepare_data_for_modelling_emiten(emiten: str, start_date: str, end_date: str, target_column: str, label_type: str, rolling_windows: list) -> pd.DataFrame:
+def prepare_data_for_modelling_emiten(emiten: str, start_date: str, end_date: str, target_column: str, label_types: list, rolling_windows: list) -> pd.DataFrame:
     """
     Orchestrates the full data preparation pipeline for a machine learning model
 
@@ -38,8 +38,8 @@ def prepare_data_for_modelling_emiten(emiten: str, start_date: str, end_date: st
     logging.info("Generating technical indicators as features")
     data = generate_all_technical_indicators(data)
 
-    logging.info(f"Generating {'and '.join([f'{window}dd' for window in rolling_windows])} {' '.join(label_type.split('_'))} as target variables")
-    data = _generate_labels_based_on_label_type(data, target_column, rolling_windows, label_type)
+    logging.info(f"Generating {' and '.join([f'{window}dd' for window in rolling_windows])} for {' and '.join([' '.join(label_type.split('_')) for label_type in label_types])} as target variables")
+    data = _generate_labels_based_on_label_type(data, target_column, rolling_windows, label_types)
 
     logging.info(f"----- Succesfully Executed the Data Preparation Pipeline for Emiten {emiten} -----")
 
@@ -93,7 +93,7 @@ def prepare_data_for_modelling_industry(industry: str, start_date: str, end_date
     
     return all_industry_data
 
-def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str, rolling_window: int) -> pd.DataFrame:
+def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str) -> pd.DataFrame:
     """
     Orchestrates the full data preparation pipeline for making forecasts using the developed machine learning model
 
@@ -121,7 +121,7 @@ def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str, ro
     data = generate_all_technical_indicators(data)
     
     logging.info("Finalizing the forecasting dataset")
-    forecasting_data = data.tail(rolling_window)
+    forecasting_data = data.tail(1)
     forecasting_data['Kode'] = emiten
     forecasting_data.reset_index(inplace=True)
 
