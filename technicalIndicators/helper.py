@@ -112,3 +112,18 @@ def group_trends(trends, threshold):
         return 0
     else:
         return np.abs(trends) / trends
+    
+def get_all_technical_indicators():
+    """
+    Load the saved and generated stock's technical indicators
+    Args:
+        None
+    
+    Returns:
+        list: A list containing all feature names for the technical indicators
+    """
+    feature_file = 'database/stocksInformation/technical_indicator_features.txt'
+    with open(feature_file, "r") as file:
+        feature_columns = [line.strip() for line in file]
+    
+    return feature_columns
