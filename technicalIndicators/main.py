@@ -104,7 +104,7 @@ def generate_all_technical_indicators(data: pd.DataFrame) -> pd.DataFrame:
         all_stock_indicators_data[col] = all_stock_indicators_data[col].astype(int)
     logging.info(f'Acquired {len(feature_columns)} features for the stock data')
 
-    output_path = 'modelDevelopment/technical_indicator_features.txt'
+    output_path = 'database/stocksInformation/technical_indicator_features.txt'
     logging.info(f'Saving all newly generated features into {output_path}')
     with open(output_path, "w") as file:
         for fea_col in feature_columns:

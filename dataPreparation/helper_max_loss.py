@@ -4,15 +4,15 @@ import yfinance as yf
 
 def _generate_max_loss(data: pd.DataFrame, target_column: str, rolling_window: int) -> (np.array, float):
     """
-    (Internal Helper) Calculates the max loss of a pandas dataframe
+    (Internal Helper) Calculates the max loss of a target column based on a rolling window
 
     Args:
         data (pd.DataFrame): A pandas dataframe containing the daily price data
         target_column (str): The column name wished to be used as target data
-        rolling_windos (int): The amount of upcoming target data used for creating the label
+        rolling_windows (int): The amount of upcoming target data used for creating the label
 
     Returns:
-        np.array: The median gain for all target data
+        np.array: A collection of max loss based on a rolling window
         float: The threshold for the quantile 0.6
     """
     min_close = data[target_column].rolling(rolling_window).min()
@@ -23,11 +23,11 @@ def _generate_max_loss(data: pd.DataFrame, target_column: str, rolling_window: i
 
 def _bin_max_loss(threshold: float, val: float) -> str:
     """
-    (Internal Helper) Perform binning for the max losss using the threshold to create the labels for model development
+    (Internal Helper) Perform binning for the max loss based on the threshold to create the labels for model development
 
     Args:
         threshold (float): The threshold for the quantile 0.6
-        val (float): The max loss for the upcoming rolling window target variable
+        val (float): The max loss based on a rolling window for the label
         
     Returns:
         str: Labels for developing the model
@@ -43,14 +43,9 @@ def _generate_all_max_loss(data: pd.DataFrame, target_column: str, rolling_windo
     """
     (Internal Helper) Generates a max loss label for each day based on a rolling window
 
-    For each day in the dataset, this function looks at the *next* `rolling_window`
-    days of the `target_column`, calculates the median gain, and assigns a categorical 
-    label ('Low Risk' or 'High Risk') to the current day
-    This resulting column is the target variable for the machine learning model
-
     Args:
         data (pd.DataFrame): The input DataFrame containing stock data
-        target_column (str): The name of the column to analyze (e.g., 'Close')
+        target_column (str): The name of the column to analyze
         rolling_window (int): The number of future days to look at for the max loss
 
     Returns:

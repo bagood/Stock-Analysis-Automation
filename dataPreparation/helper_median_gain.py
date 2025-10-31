@@ -4,16 +4,16 @@ import yfinance as yf
 
 def _generate_median_gain(data: pd.DataFrame, target_column: str, rolling_window: int) -> (np.array, float):
     """
-    (Internal Helper) Calculates the median gain of a pandas dataframe
+    (Internal Helper) Calculates the median gain of a target column based on a rolling window
 
     Args:
         data (pd.DataFrame): A pandas dataframe containing the daily price data
         target_column (str): The column name wished to be used as target data
-        rolling_windos (int): The amount of upcoming target data used for creating the label
+        rolling_windows (int): The amount of upcoming target data used for creating the label
 
     Returns:
         np.array: The median gain for all target data
-        float: The threshold for the quantile 0.4
+        float: The threshold for the quantile 0.9
     """
     median_close = data[target_column].rolling(rolling_window).quantile(0.4)
     median_gain = 100 * (median_close - data[target_column].values) / data[target_column].values
@@ -23,11 +23,11 @@ def _generate_median_gain(data: pd.DataFrame, target_column: str, rolling_window
 
 def _bin_median_gain(threshold: float, val: float) -> str:
     """
-    (Internal Helper) Perform binning for the median gain using the threshold to create the labels for model development
+    (Internal Helper) Perform binning for the median gain based on the threshold to create the labels for model development
 
     Args:
-        threshold (float): The threshold for the quantile 0.4
-        val (float): The median for the upcoming rolling window target variable
+        threshold (float): The threshold for the quantile 0.9
+        val (float): The median gain for the upcoming rolling window target variable
         
     Returns:
         str: Labels for developing the model
@@ -43,14 +43,9 @@ def _generate_all_median_gain(data: pd.DataFrame, target_column: str, rolling_wi
     """
     (Internal Helper) Generates a median gain label for each day based on a rolling window
 
-    For each day in the dataset, this function looks at the *next* `rolling_window`
-    days of the `target_column`, calculates the median gain, and assigns a categorical 
-    label ('High Gain' or 'Low Gain') to the current day
-    This resulting column is the target variable for the machine learning model
-
     Args:
         data (pd.DataFrame): The input DataFrame containing stock data
-        target_column (str): The name of the column to analyze (e.g., 'Close')
+        target_column (str): The name of the column to analyze
         rolling_window (int): The number of future days to look at for the median gain
 
     Returns:

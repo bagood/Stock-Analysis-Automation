@@ -9,3 +9,5 @@ catboost_info/
 .DS_Store
 
 database/
+
+executeModelling.ipynb

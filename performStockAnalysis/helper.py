@@ -37,7 +37,7 @@ def _combine_train_test_metrics_into_single_df(kode: str, train_metrics: dict, t
     (Internal Helper) Combines training and testing metrics into a single DataFrame row.
 
     Args:
-        kode (str): The stock ticker symbol.
+        kode (str): The stock emiten symbol.
         train_metrics (dict): A dictionary of performance metrics for the training set.
         test_metrics (dict): A dictionary of performance metrics for the testing set.
 
@@ -60,12 +60,12 @@ def _save_developed_model(model, label_type: str, kode: str, model_type: str):
     """
     Saves a trained model object to a file using pickle.
 
-    The filename is standardized to include the stock ticker, model type (e.g., '10dd'),
+    The filename is standardized to include the stock emiten, model type (e.g., '10dd'),
     and the date of creation.
 
     Args:
         model (object): The trained model object to be saved.
-        kode (str): The stock ticker symbol.
+        kode (str): The stock emiten symbol.
         model_type (str): A descriptor for the model type (e.g., '10dd', '15dd').
     """ 
     developed_date = datetime.now().date().strftime('%Y%m%d')
