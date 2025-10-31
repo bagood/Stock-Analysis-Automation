@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 def _generate_max_loss(data: pd.DataFrame, target_column: str, rolling_window: int) -> (np.array, float):
     """
