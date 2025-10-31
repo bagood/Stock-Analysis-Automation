@@ -4,7 +4,17 @@ import pandas as pd
 from datetime import datetime
 from camel_converter import to_camel
 
-def _initialize_repeatedly_used_variables(label_types: list, rolling_windows: list = None):
+def _initialize_repeatedly_used_variables(label_types: list, rolling_windows: list = None) -> list:
+    """
+    (Internal Helper) Initialize repeatedyly used variables based on the given inputs
+    
+    Args:
+        label_types (list): A list of label types for model's target variables
+        rolling_windows (list): A list of integers for the future statistic windows
+    
+    Returns:
+        list: An array containing several arrays with each contains target_columns, threshold_columns, positive_label, negative_label
+    """
     list_of_variables = []
     for label_type in label_types:
         target_columns = None
@@ -82,6 +92,13 @@ def _save_developed_model(model, label_type: str, kode: str, model_type: str):
     return
 
 def _save_csv_file(data: pd.DataFrame, filename: str):
+    """
+    (Internal Helper) Saves a pandas dataframe by either creating new file or appending to an existing file
+
+    Args:
+        data (pd.DataFrame): The pandas dataframe that is about to be saved
+        filename (str): Filepath to save the data
+    """
     if os.path.exists(filename):
         data.to_csv(filename, mode='a', index=False, header=False) 
     else:

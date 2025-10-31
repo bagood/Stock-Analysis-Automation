@@ -59,8 +59,8 @@ def develop_models_for_selected_emiten(selected_emiten: list, label_types: list,
 
     Args:
         selected_emiten (list): A list of stock emiten symbols to process
-        label_types (list): A list of stock emiten symbols to process
-
+        label_types (list): A list of label types for model's target variables
+        rolling_windows (list): A list of integers for the future statistic windows
     """
     logging.info(f"===== Starting Model Development for {len(selected_emiten)} Selected Emitens =====")
     
@@ -117,7 +117,8 @@ def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list
     Orchestrates the forecasting pipeline for stocks that exceeds the minimum test gini performance
     
     Args:
-        forecast_dd (int): The desired upcoming days to be forcasted
+        all_forecast_dd (list): A list of integers for the future statistic forecast
+        label_types (list): A list of label types for model's target variables
         development_date (str): The date where the model is developed
         min_test_gini (float): The minimum gini performance for the model's testing performance
     """
@@ -162,28 +163,26 @@ def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list
                 end_date=''
             )
 
-            logging.info(f'Performing forecast for {emiten}')
             for label_type, (target_columns, threshold_columns, positive_label, negative_label) in zip(label_types, list_of_variables):
                 for forecast_dd, target_column, threshold_column in zip(all_forecast_dd, target_columns, threshold_columns):                    
-                    logging.info(f'Loading the developed {label_type} {forecast_dd} days model for {emiten}')
+                    logging.info(f"Starting the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
+                    
                     model_path = f'database/developedModels/{to_camel(label_type)}/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
                     with open(model_path, 'rb') as file:
                         loaded_model = pickle.load(file)
             
-                    logging.info(f'Forecast using the developed {label_type} {forecast_dd} days model for {emiten}')
                     forecast_column_name = f'Forecast {positive_label} {forecast_dd}dd'
                     forecasting_data[forecast_column_name] = forecasting_data.apply(
                         lambda row: loaded_model.predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(loaded_model.classes_).index(positive_label)],
                         axis=1
                     )
 
-                    logging.info(f'Saving the {label_type} {forecast_dd} days forecast result for {emiten}')
                     selected_columns = ['Kode', 'Date', forecast_column_name]
                     forecasting_data_to_save = forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns]
                     forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'  
                     _ = _save_csv_file(forecasting_data_to_save, forecast_path)
 
-            logging.info(f"Finished the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
+                    logging.info(f"Finished the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
 
         except:
             logging.warning(f"Failed in the process of {label_type} {forecast_dd} days forecasting for {emiten}")

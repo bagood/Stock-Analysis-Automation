@@ -52,7 +52,7 @@ def _generate_labels_based_on_label_type(data: pd.DataFrame, target_column: str,
         data (pd.DataFrame): The input DataFrame containing stock data
         target_column (str): The name of the column to analyze
         rolling_windows (list): A list of rolling window, the number of future days to look at for the label
-        label_type (str):  The type of label wished to be generated 
+        label_types (list): A list of label types for model's target variables
 
     Returns:
         pd.DataFrame: A dataframe with an added column of the generated label

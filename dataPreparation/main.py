@@ -25,6 +25,7 @@ def prepare_data_for_modelling_emiten(emiten: str, start_date: str, end_date: st
         start_date (str): The start date for the data ('YYYY-MM-DD')
         end_date (str): The end date for the data ('YYYY-MM-DD')
         target_column (str): The target column to use for label generation
+        label_types (list): A list of label types for model's target variables
         rolling_windows (list): A list of integers for the future statistic windows
 
     Returns:
@@ -106,8 +107,6 @@ def prepare_data_for_forecasting(emiten: str, start_date: str, end_date: str) ->
         emiten (str): The stock emiten symbol.
         start_date (str): The start date for the data ('YYYY-MM-DD')
         end_date (str): The end date for the data ('YYYY-MM-DD')
-        rolling_window (int): An integers for the future median of price gain windows, correlates with the total of forecasting data
-        download (bool): If True, downloads data from Yahoo Finance. If False, loads a local dummy file
 
     Returns:
         pd.DataFrame: A clean, feature-rich DataFrame ready for model training and evaluation
