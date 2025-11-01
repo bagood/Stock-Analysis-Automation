@@ -10,7 +10,7 @@ from modelDevelopment.main import develop_model
 from dataPreparation.helper import _download_stock_data
 from technicalIndicators.helper import get_all_technical_indicators
 from dataPreparation.main import prepare_data_for_modelling_emiten, prepare_data_for_forecasting
-from performStockAnalysis.helper import _write_or_append_list_to_txt, _read_txt_as_list, _initialize_repeatedly_used_variables, _combine_train_test_metrics_into_single_df, _save_developed_model, _save_csv_file
+from performStockAnalysis.helper import _write_or_append_list_to_txt, _read_txt_as_list, _timeout, _initialize_repeatedly_used_variables, _combine_train_test_metrics_into_single_df, _save_developed_model, _save_csv_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,7 +106,7 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
     for i, emiten in enumerate(selected_emiten):
         try:
             logging.info(f"Processing Emiten: {emiten} ({i+1}/{len(selected_emiten)})")
-            
+
             prepared_data = prepare_data_for_modelling_emiten(
                 emiten=emiten, 
                 start_date='2021-01-01', 
@@ -118,28 +118,41 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
 
             for label_type, (target_columns, threshold_columns, positive_label, negative_label) in zip(label_types, list_of_variables):
                 for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
-                    logging.info(f"Developing the {label_type} {window} day rolling window model for {emiten}")
-                    model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
+                    for n_try in range(3):
+                        try:
+                            with _timeout(1):
+                                logging.info(f"Developing the {label_type} {window} day rolling window model for {emiten}")
+                                model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 
-                    logging.info(f"Saving the developed {label_type} {window} day rolling window model for {emiten}")
-                    _save_developed_model(model, label_type, emiten, f'{window}dd')
+                                logging.info(f"Saving the developed {label_type} {window} day rolling window model for {emiten}")
+                                _save_developed_model(model, label_type, emiten, f'{window}dd')
 
-                    logging.info(f"Saving the developed {label_type} {window} day rolling window model's performance for {emiten}")
-                    train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
-                    train_test['Threshold'] = prepared_data[threshold_column].values[0]
+                                logging.info(f"Saving the developed {label_type} {window} day rolling window model's performance for {emiten}")
+                                train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
+                                train_test['Threshold'] = prepared_data[threshold_column].values[0]
 
-                    filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
-                    _ = _save_csv_file(train_test, filename)
-            
-            processed_emiten_path = f'database/processedEmitens/{developed_date}.txt'
-            _  = _write_or_append_list_to_txt([emiten], processed_emiten_path, 'a')
+                                filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
+                                _ = _save_csv_file(train_test, filename)
 
-            logging.info(f"Finished processing for Emiten: {emiten}")
+                                processed_emiten_path = f'database/processedEmitens/{developed_date}.txt'
+                                _  = _write_or_append_list_to_txt([emiten], processed_emiten_path, 'a')
 
-        except:
+                                logging.info(f"Finished processing for Emiten: {emiten}")
+
+                                break
+
+                        except TimeoutError as e:
+                            if n_try != 2:
+                                logging.warning(f'Processed failed due to it being timed out, retrying the process ({n_try+2} out of 3 trials)')
+                            else:
+                                raise TimeoutError(e)
+
+        except Exception as e:
             logging.warning(f"Failed processing for Emiten: {emiten}")
-            failed_emitens.append(emiten)
+            logging.warning(f"An error occurred: {e}")
 
+            failed_emitens.append(emiten)
+                
     failed_emiten_path = f'database/failedEmitens/{developed_date}.txt'
     logging.info(f"Saving emitens that are failed being processed to {failed_emiten_path}")
     _  = _write_or_append_list_to_txt(failed_emitens, failed_emiten_path, 'w')

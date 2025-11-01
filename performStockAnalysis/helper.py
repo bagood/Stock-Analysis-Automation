@@ -1,10 +1,22 @@
 import os
+import time
+import signal
 import pickle
+import contextlib
 import pandas as pd
 from datetime import datetime
 from camel_converter import to_camel
 
+
 def _write_or_append_list_to_txt(list_value: list, file_path: str, write_mode: str):
+    """
+    (Internal Helper) Write or append values stored in a list into a txt file
+
+    Args:
+        list_value (list): A list that wants to be written
+        file_path (list): The path to the txt file where the list will be written
+        write_mode (list): The specified mode to write into the txt file ('w' to write and 'a' to append)
+    """
     with open(file_path, write_mode) as file:
         for val in list_value:
             file.write(val + "\n")
@@ -12,10 +24,51 @@ def _write_or_append_list_to_txt(list_value: list, file_path: str, write_mode: s
     return
 
 def _read_txt_as_list(file_path: str) -> list:
+    """
+    (Internal Helper) Reads a txt file as a list
+
+    Args:
+        file_path (list): The path to the txt file where the it will be read as a list
+
+    Returns:
+        list: The resulted list form reading the txt file
+    """
     with open(file_path, "r") as file:
         list_value = [line.strip() for line in file]
     
     return list_value
+
+@contextlib.contextmanager
+def _timeout(seconds):
+    """
+    (Internal Helper) A context manager to apply a timeout to a block of code.
+
+    Args:
+        seconds (int): The timeout duration in seconds.
+
+    Raises:
+        TimeoutError: If the block of code does not complete
+                          within the specified time.
+                          
+    """
+    
+    def _handle_timeout(signum, frame):
+        """
+        Internal handler for the alarm signal.
+        When the alarm goes off, this function is called,
+        and it raises a TimeoutError.
+        """
+        raise TimeoutError(f"Block exceeded {seconds} second(s) timeout")
+
+    original_handler = signal.signal(signal.SIGALRM, _handle_timeout)
+    signal.alarm(seconds)
+    
+    try:
+        yield
+
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, original_handler)
 
 def _initialize_repeatedly_used_variables(label_types: list, rolling_windows: list = None) -> list:
     """
