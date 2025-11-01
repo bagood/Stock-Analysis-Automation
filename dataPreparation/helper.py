@@ -44,35 +44,36 @@ def _download_stock_data(emiten: str, start_date: str, end_date: str) -> pd.Data
 
     return data
 
-def _generate_labels_based_on_label_type(data: pd.DataFrame, target_column: str, rolling_windows: list, label_type: str) -> pd.DataFrame:
+def _generate_labels_based_on_label_type(data: pd.DataFrame, target_column: str, rolling_windows: list, label_types: list) -> pd.DataFrame:
     """
     (Internal Helper) Generates a label following the requested label type for each day based on a rolling window
 
     Args:
         data (pd.DataFrame): The input DataFrame containing stock data
         target_column (str): The name of the column to analyze
-        rolling_windows (lit): A list of rolling window, the number of future days to look at for the label
-        label_type (str):  The type of label wished to be generated 
+        rolling_windows (list): A list of rolling window, the number of future days to look at for the label
+        label_types (list): A list of label types for model's target variables
 
     Returns:
         pd.DataFrame: A dataframe with an added column of the generated label
     """
-    if label_type in 'linear_trend':
-        for window in rolling_windows:
-            data = _generate_all_linreg_gradients(data, target_column, window)
-            
-        data.dropna(subset=[f'Linear Trend {window}dd' for window in rolling_windows], inplace=True)
+    for label_type in label_types:
+        if label_type in 'linear_trend':
+            for window in rolling_windows:
+                data = _generate_all_linreg_gradients(data, target_column, window)
+                
+            data.dropna(subset=[f'Linear Trend {window}dd' for window in rolling_windows], inplace=True)
 
-    elif label_type == 'median_gain':
-        for window in rolling_windows:
-            data = _generate_all_median_gain(data, target_column, window)
+        elif label_type == 'median_gain':
+            for window in rolling_windows:
+                data = _generate_all_median_gain(data, target_column, window)
 
-        data.dropna(subset=[f'Median Gain {window}dd' for window in rolling_windows], inplace=True)
-    
-    elif label_type == 'max_loss':
-        for window in rolling_windows:
-            data = _generate_all_max_loss(data, target_column, window)
+            data.dropna(subset=[f'Median Gain {window}dd' for window in rolling_windows], inplace=True)
+        
+        elif label_type == 'max_loss':
+            for window in rolling_windows:
+                data = _generate_all_max_loss(data, target_column, window)
 
-        data.dropna(subset=[f'Max Loss {window}dd' for window in rolling_windows], inplace=True)
+            data.dropna(subset=[f'Max Loss {window}dd' for window in rolling_windows], inplace=True)
     
     return data

@@ -4,32 +4,47 @@ import pandas as pd
 from datetime import datetime
 from camel_converter import to_camel
 
-def _initialize_repeatedly_used_variables(label_type: str, rolling_windows: list = None):
-    target_columns = None
-    threshold_columns = None
-
-    if label_type in ['linear_trend', 'linearTrend']:
-        if rolling_windows != None:
-            target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Linear Trend {window}dd' for window in rolling_windows]
-        positive_label = 'Up Trend'
-        negative_label = 'Down Trend'
-
-    elif label_type in ['median_gain', 'medianGain']:
-        if rolling_windows != None:
-            target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Median Gain {window}dd' for window in rolling_windows]
-        positive_label = 'High Gain'
-        negative_label = 'Low Gain'
+def _initialize_repeatedly_used_variables(label_types: list, rolling_windows: list = None) -> list:
+    """
+    (Internal Helper) Initialize repeatedyly used variables based on the given inputs
     
-    elif label_type in ['max_loss', 'maxLoss']:
-        if rolling_windows != None:
-            target_columns = [f'Max Loss {window}dd' for window in rolling_windows]
-            threshold_columns = [f'Threshold Max Loss {window}dd' for window in rolling_windows]
-        positive_label = 'Low Risk'
-        negative_label = 'High Risk'
+    Args:
+        label_types (list): A list of label types for model's target variables
+        rolling_windows (list): A list of integers for the future statistic windows
     
-    return (target_columns, threshold_columns, positive_label, negative_label)
+    Returns:
+        list: An array containing several arrays with each contains target_columns, threshold_columns, positive_label, negative_label
+    """
+    list_of_variables = []
+    for label_type in label_types:
+        target_columns = None
+        threshold_columns = None
+
+        if label_type in ['linear_trend', 'linearTrend']:
+            if rolling_windows != None:
+                target_columns = [f'Linear Trend {window}dd' for window in rolling_windows]
+                threshold_columns = [f'Threshold Linear Trend {window}dd' for window in rolling_windows]
+            positive_label = 'Up Trend'
+            negative_label = 'Down Trend'
+
+        elif label_type in ['median_gain', 'medianGain']:
+            if rolling_windows != None:
+                target_columns = [f'Median Gain {window}dd' for window in rolling_windows]
+                threshold_columns = [f'Threshold Median Gain {window}dd' for window in rolling_windows]
+            positive_label = 'High Gain'
+            negative_label = 'Low Gain'
+        
+        elif label_type in ['max_loss', 'maxLoss']:
+            if rolling_windows != None:
+                target_columns = [f'Max Loss {window}dd' for window in rolling_windows]
+                threshold_columns = [f'Threshold Max Loss {window}dd' for window in rolling_windows]
+            positive_label = 'Low Risk'
+            negative_label = 'High Risk'
+        
+        variables = [target_columns, threshold_columns, positive_label, negative_label]
+        list_of_variables.append(variables)
+        
+    return list_of_variables
 
 
 def _combine_train_test_metrics_into_single_df(kode: str, train_metrics: dict, test_metrics: dict) -> pd.DataFrame:
@@ -77,6 +92,13 @@ def _save_developed_model(model, label_type: str, kode: str, model_type: str):
     return
 
 def _save_csv_file(data: pd.DataFrame, filename: str):
+    """
+    (Internal Helper) Saves a pandas dataframe by either creating new file or appending to an existing file
+
+    Args:
+        data (pd.DataFrame): The pandas dataframe that is about to be saved
+        filename (str): Filepath to save the data
+    """
     if os.path.exists(filename):
         data.to_csv(filename, mode='a', index=False, header=False) 
     else:
