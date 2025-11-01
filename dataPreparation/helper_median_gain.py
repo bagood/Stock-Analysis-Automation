@@ -16,7 +16,7 @@ def _generate_median_gain(data: pd.DataFrame, target_column: str, rolling_window
     """
     median_close = data[target_column].rolling(rolling_window).quantile(0.4)
     median_gain = 100 * (median_close - data[target_column].values) / data[target_column].values
-    threshold = np.nanquantile(median_gain, 0.9)
+    threshold = np.nanquantile(median_gain, 0.8)
     
     return (median_gain, threshold)
 

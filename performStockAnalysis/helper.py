@@ -4,6 +4,19 @@ import pandas as pd
 from datetime import datetime
 from camel_converter import to_camel
 
+def _write_or_append_list_to_txt(list_value: list, file_path: str, write_mode: str):
+    with open(file_path, write_mode) as file:
+        for val in list_value:
+            file.write(val + "\n")
+    
+    return
+
+def _read_txt_as_list(file_path: str) -> list:
+    with open(file_path, "r") as file:
+        list_value = [line.strip() for line in file]
+    
+    return list_value
+
 def _initialize_repeatedly_used_variables(label_types: list, rolling_windows: list = None) -> list:
     """
     (Internal Helper) Initialize repeatedyly used variables based on the given inputs
