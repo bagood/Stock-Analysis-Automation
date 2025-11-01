@@ -14,7 +14,3 @@ USER app
 WORKDIR /app
 
 ENV PATH="$PATH:/home/app/.dotnet/tools"
-
-EXPOSE 8888
-
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--no-browser", "--LabApp.token=''"]
