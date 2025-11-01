@@ -1,4 +1,23 @@
 services:
+  initialize-database-directories:
+    volumes:
+      - .:/app
+    image: dotnet-8-python-310
+    command: ["mkdir", "-p",
+                "database/developedModels/linearTrend",
+                "database/developedModels/maxLoss",
+                "database/developedModels/medianGain",
+                "database/forecastedStocks/linearTrend",
+                "database/forecastedStocks/maxLoss",
+                "database/forecastedStocks/medianGain",
+                "database/modelPerformances/linearTrend",
+                "database/modelPerformances/maxLoss",
+                "database/modelPerformances/medianGain",
+                "database/failedEmitens",
+                "database/processedEmitens",
+                "database/selectedEmitens"
+                ]
+
   initialize-jupyter-lab:
     build: .
     image: dotnet-8-python-310

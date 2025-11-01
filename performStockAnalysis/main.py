@@ -31,7 +31,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
         quantile_threshold (float): The qunatile value for determining the selected emiten
     """
     logging.info("===== Starting stock selection process based on recent trading volume =====")
-    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv').head(5)
+    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv')
     start_date = (datetime.now().date() - timedelta(days=45)).strftime('%Y-%m-%d')
     
     logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
@@ -120,7 +120,7 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
                 for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
                     for n_try in range(3):
                         try:
-                            with _timeout(1):
+                            with _timeout(180):
                                 logging.info(f"Developing the {label_type} {window} day rolling window model for {emiten}")
                                 model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 

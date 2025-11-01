@@ -8,6 +8,9 @@ catboost_info/
 
 .DS_Store
 
-database/
-
-executeModelling.ipynb
+database/developedModels
+database/failedEmitens
+database/forecastedStocks
+database/modelPerformances
+database/processedEmitens
+database/selectedEmitens
