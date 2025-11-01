@@ -1,12 +1,26 @@
-version: '3.8'
-
 services:
-  dotnet-jupyter:
+  initialize-jupyter-lab:
     build: .
-    container_name: stock-analysis-automation
-    image: dotnet-8-jupyter-lab
+    image: dotnet-8-python-310
     ports:
       - "8888:8888"
     volumes:
       - .:/app
     tty: true
+    command: jupyter lab --ip=0.0.0.0 --no-browser --LabApp.token=''
+  
+  develop-model:
+    build: .
+    image: dotnet-8-python-310
+    volumes:
+      - .:/app
+    tty: true
+    command: python3 develop_model.py
+  
+  forecast-stocks:
+    build: .
+    image: dotnet-8-python-310
+    volumes:
+      - .:/app
+    tty: true
+    command: python3 forecast_stocks.py
