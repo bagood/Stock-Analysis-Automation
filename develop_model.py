@@ -13,6 +13,5 @@ if os.getenv("develop_model_bypass_bool") == 'False':
 
 label_types = os.getenv("develop_model_label_types").split(',')
 rolling_windows = [int(val) for val in os.getenv("develop_model_rolling_windows").split(',')]
-developed_date = os.getenv("develop_model_developed_date")
 
-develop_models_for_selected_emiten(label_types, rolling_windows, developed_date)
+develop_models_for_selected_emiten(label_types, rolling_windows)
