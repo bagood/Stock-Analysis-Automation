@@ -9,8 +9,6 @@ catboost_info/
 .DS_Store
 
 database/developedModels
-database/failedEmitens
+database/modelDevelopmentsLog
 database/forecastedStocks
 database/modelPerformances
-database/processedEmitens
-database/selectedEmitens

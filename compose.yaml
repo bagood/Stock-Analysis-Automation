@@ -13,9 +13,7 @@ services:
                 "database/modelPerformances/linearTrend",
                 "database/modelPerformances/maxLoss",
                 "database/modelPerformances/medianGain",
-                "database/failedEmitens",
-                "database/processedEmitens",
-                "database/selectedEmitens"
+                "database/modelDevelopmentsLog",
                 ]
 
   initialize-jupyter-lab:

@@ -31,7 +31,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
         quantile_threshold (float): The qunatile value for determining the selected emiten
     """
     logging.info("===== Starting stock selection process based on recent trading volume =====")
-    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv').head(3)
+    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv')
     start_date = (datetime.now().date() - timedelta(days=45)).strftime('%Y-%m-%d')
     
     logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
@@ -50,8 +50,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
     threshold = np.nanquantile(data_saham['Average Volume'].values, quantile_threshold)
     selected_emiten = data_saham.loc[data_saham['Average Volume'] >= threshold, 'Kode'].values
 
-    developed_date = datetime.now().date().strftime('%Y%m%d')
-    selected_emiten_path = f'database/selectedEmitens/{developed_date}.txt'
+    selected_emiten_path = 'database/modelDevelopmentsLog/selectedEmitens.txt'
     logging.info(f"Saving all selected emitens to '{selected_emiten_path}'")
     _  = _write_or_append_list_to_txt(selected_emiten, selected_emiten_path, 'w')
 
@@ -79,20 +78,16 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
     logging.info(f"===== Starting Model Development for Selected Emitens =====")
     
     list_of_variables = _initialize_repeatedly_used_variables(label_types, rolling_windows)
-    developed_date = datetime.now().date().strftime('%Y%m%d')
-    failed_emitens = []
-
-    developed_date = datetime.now().date().strftime('%Y%m%d')
     
     logging.info(f"Selecting which emitens to process")
-    selected_emiten_path = f'database/selectedEmitens/{developed_date}.txt'
+    selected_emiten_path = 'database/modelDevelopmentsLog/selectedEmitens.txt'
     selected_emiten = _read_txt_as_list(selected_emiten_path)
 
     logging.info(f'Found {len(selected_emiten)} emitens to process')
     logging.info(f"Selecting which emiten has been processed")
 
     try:
-        processed_emiten_path = f'database/processedEmitens/{developed_date}.txt'
+        processed_emiten_path = 'database/modelDevelopmentsLog/processedEmitens.txt'
         processed_emiten = _read_txt_as_list(processed_emiten_path)
 
         logging.info(f'Found {len(processed_emiten)} emitens that have been processed')
@@ -120,24 +115,19 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
                 for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
                     for n_try in range(3):
                         try:
-                            with _timeout(180):
+                            with _timeout(60):
                                 logging.info(f"Developing the {label_type} {window} day rolling window model for {emiten}")
                                 model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 
                                 logging.info(f"Saving the developed {label_type} {window} day rolling window model for {emiten}")
-                                _save_developed_model(model, label_type, emiten, f'{window}dd')
+                                _ = _save_developed_model(model, label_type, emiten, f'{window}dd')
 
                                 logging.info(f"Saving the developed {label_type} {window} day rolling window model's performance for {emiten}")
                                 train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
                                 train_test['Threshold'] = prepared_data[threshold_column].values[0]
 
-                                filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
+                                filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd.csv'
                                 _ = _save_csv_file(train_test, filename)
-
-                                processed_emiten_path = f'database/processedEmitens/{developed_date}.txt'
-                                _  = _write_or_append_list_to_txt([emiten], processed_emiten_path, 'a')
-
-                                logging.info(f"Finished processing for Emiten: {emiten}")
 
                                 break
 
@@ -146,31 +136,33 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
                                 logging.warning(f'Processed failed due to it being timed out, retrying the process ({n_try+2} out of 3 trials)')
                             else:
                                 raise TimeoutError(e)
+                                
+            processed_emiten_path = 'database/modelDevelopmentsLog/processedEmitens.txt'
+            _  = _write_or_append_list_to_txt([emiten], processed_emiten_path, 'a')
+
+            logging.info(f"Finished processing for Emiten: {emiten}")                                
 
         except Exception as e:
             logging.warning(f"Failed processing for Emiten: {emiten}")
             logging.warning(f"An error occurred: {e}")
 
-            failed_emitens.append(emiten)
-                
-    failed_emiten_path = f'database/failedEmitens/{developed_date}.txt'
-    logging.info(f"Saving emitens that are failed being processed to {failed_emiten_path}")
-    _  = _write_or_append_list_to_txt(failed_emitens, failed_emiten_path, 'w')
+            failed_emiten_path = f'database/modelDevelopmentsLog/failedEmitens.txt'
+            logging.info(f"Saving the emiten that failed being processed to {failed_emiten_path}")
+            _  = _write_or_append_list_to_txt([emiten], failed_emiten_path, 'a')
 
-    logging.info("List of failed stocks saved successfully")
+            logging.info("Successfully saved emiten that failed being processed")
 
     logging.info(f"===== Finished Model Development for Selected Emitens =====")
 
     return
 
-def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list, development_date: str, min_test_gini: float):
+def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list, min_test_gini: float):
     """
     Orchestrates the forecasting pipeline for stocks that exceeds the minimum test gini performance
     
     Args:
         all_forecast_dd (list): A list of integers for the future statistic forecast
         label_types (list): A list of label types for model's target variables
-        development_date (str): The date where the model is developed
         min_test_gini (float): The minimum gini performance for the model's testing performance
     """
     logging.info(f"===== Starting the Process of {'and '.join([f'{forecast_dd}dd' for forecast_dd in all_forecast_dd])} Days Forecasting on {' and '.join([' '.join(label_type.split('_')) for label_type in label_types])} Label Type =====")
@@ -180,7 +172,7 @@ def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list
     logging.info("Selecting which stocks to forecast")
     for label_type in label_types:
         for forecast_dd in all_forecast_dd:
-            model_performance_dd_path = f'database/modelPerformances/{to_camel(label_type)}/{forecast_dd}dd-{development_date}.csv'
+            model_performance_dd_path = f'database/modelPerformances/{to_camel(label_type)}/{forecast_dd}dd.csv'
             logging.info(f"Loading the model's performance data from {model_performance_dd_path}")
             all_model_performances_days = pd.read_csv(model_performance_dd_path)
 
@@ -205,8 +197,9 @@ def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list
     logging.info("Loading stock's technical indicators as features")
     feature_columns = get_all_technical_indicators()
 
-    for emiten in all_selected_emiten:
+    for i,emiten in enumerate(all_selected_emiten):
         try:
+            logging.info(f"Processing Emiten: {emiten} ({i+1}/{len(all_selected_emiten)})")
             logging.info('Prepare all stock data to be used for forecasting')
             forecasting_data = prepare_data_for_forecasting(
                 emiten=emiten, 
@@ -215,28 +208,41 @@ def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list
             )
 
             for label_type, (target_columns, threshold_columns, positive_label, negative_label) in zip(label_types, list_of_variables):
-                for forecast_dd, target_column, threshold_column in zip(all_forecast_dd, target_columns, threshold_columns):                    
-                    logging.info(f"Starting the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
-                    
-                    model_path = f'database/developedModels/{to_camel(label_type)}/{emiten}-{forecast_dd}dd-{development_date}.pkl'         
-                    with open(model_path, 'rb') as file:
-                        loaded_model = pickle.load(file)
-            
-                    forecast_column_name = f'Forecast {positive_label} {forecast_dd}dd'
-                    forecasting_data[forecast_column_name] = forecasting_data.apply(
-                        lambda row: loaded_model.predict_proba(row[feature_columns].values.reshape(1, -1))[0, list(loaded_model.classes_).index(positive_label)],
-                        axis=1
-                    )
+                for forecast_dd, target_column, threshold_column in zip(all_forecast_dd, target_columns, threshold_columns):
+                    for n_try in range(3):
+                        try:
+                            with _timeout(45):
+                                logging.info(f"Starting the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
+                                
+                                model_path = f'database/developedModels/{to_camel(label_type)}/{emiten}-{forecast_dd}dd.pkl'         
+                                with open(model_path, 'rb') as file:
+                                    loaded_model = pickle.load(file)
+                        
+                                forecast_column_name = f'Forecast {positive_label} {forecast_dd}dd'
+                                positive_label_index = list(loaded_model.classes_).index(positive_label)
+                                forecasting_data[forecast_column_name] = forecasting_data.apply(
+                                    lambda row: loaded_model.predict_proba(row[feature_columns].values.reshape(1, -1))[0, positive_label_index],
+                                    axis=1
+                                )
 
-                    selected_columns = ['Kode', 'Date', forecast_column_name]
-                    forecasting_data_to_save = forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns]
-                    forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd-{development_date}.csv'  
-                    _ = _save_csv_file(forecasting_data_to_save, forecast_path)
+                                selected_columns = ['Kode', 'Date', forecast_column_name]
+                                forecasting_data_to_save = forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns]
+                                forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/{forecast_dd}dd.csv'  
+                                _ = _save_csv_file(forecasting_data_to_save, forecast_path)
 
-                    logging.info(f"Finished the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
+                                logging.info(f"Finished the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
 
-        except:
+                                break
+                            
+                        except TimeoutError as e:
+                            if n_try != 2:
+                                logging.warning(f'Processed failed due to it being timed out, retrying the process ({n_try+2} out of 3 trials)')
+                            else:
+                                raise TimeoutError(e)
+
+        except Exception as e:
             logging.warning(f"Failed in the process of {label_type} {forecast_dd} days forecasting for {emiten}")
+            logging.warning(f"An error occurred: {e}")
     
     logging.info(f"===== Finished the Process of {'and '.join([f'{forecast_dd}dd' for forecast_dd in all_forecast_dd])} Days Forecasting on {' and '.join([' '.join(label_type.split('_')) for label_type in label_types])} Label Type =====")
 

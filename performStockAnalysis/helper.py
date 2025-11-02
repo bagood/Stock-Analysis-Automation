@@ -141,16 +141,14 @@ def _save_developed_model(model, label_type: str, kode: str, model_type: str):
     """
     Saves a trained model object to a file using pickle.
 
-    The filename is standardized to include the stock emiten, model type (e.g., '10dd'),
-    and the date of creation.
+    The filename is standardized to include the stock emiten and model type (e.g., '10dd')
 
     Args:
         model (object): The trained model object to be saved.
         kode (str): The stock emiten symbol.
         model_type (str): A descriptor for the model type (e.g., '10dd', '15dd').
     """ 
-    developed_date = datetime.now().date().strftime('%Y%m%d')
-    filename = f'database/developedModels/{to_camel(label_type)}/{kode}-{model_type}-{developed_date}.pkl'
+    filename = f'database/developedModels/{to_camel(label_type)}/{kode}-{model_type}.pkl'
     
     with open(filename, 'wb') as file:
         pickle.dump(model, file)
