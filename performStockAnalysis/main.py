@@ -227,7 +227,7 @@ def forecast_using_the_developed_models(all_forecast_dd: list, label_types: list
 
                                 selected_columns = ['Kode', 'Date', forecast_column_name]
                                 forecasting_data_to_save = forecasting_data.loc[forecasting_data['Date'] == forecasting_data['Date'].max(), selected_columns]
-                                forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/forecast-{forecast_dd}dd.csv'  
+                                forecast_path = f'database/forecastedStocks/{to_camel(label_type)}/{forecast_dd}dd.csv'  
                                 _ = _save_csv_file(forecasting_data_to_save, forecast_path)
 
                                 logging.info(f"Finished the process of {label_type} {forecast_dd} Days forecasting for {emiten}")
