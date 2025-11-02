@@ -31,7 +31,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
         quantile_threshold (float): The qunatile value for determining the selected emiten
     """
     logging.info("===== Starting stock selection process based on recent trading volume =====")
-    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv').head(3)
+    data_saham = pd.read_csv('database/stocksInformation/stock_data_20251029.csv')
     start_date = (datetime.now().date() - timedelta(days=45)).strftime('%Y-%m-%d')
     
     logging.info(f"Fetching volume data for {len(data_saham)} stocks from {start_date} to today")
@@ -61,7 +61,7 @@ def select_emiten_to_model(quantile_threshold: float = 0.6) -> np.array:
 
     return
 
-def develop_models_for_selected_emiten(label_types: list, rolling_windows: list):
+def develop_models_for_selected_emiten(label_types: list, rolling_windows: list, developed_date: str = None):
     """
     Orchestrates the model development pipeline for a list of selected stocks
 
@@ -79,10 +79,8 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
     logging.info(f"===== Starting Model Development for Selected Emitens =====")
     
     list_of_variables = _initialize_repeatedly_used_variables(label_types, rolling_windows)
-    developed_date = datetime.now().date().strftime('%Y%m%d')
-    failed_emitens = []
-
-    developed_date = datetime.now().date().strftime('%Y%m%d')
+    if developed_date == None:
+        developed_date = datetime.now().date().strftime('%Y%m%d')
     
     logging.info(f"Selecting which emitens to process")
     selected_emiten_path = f'database/selectedEmitens/{developed_date}.txt'
@@ -120,12 +118,12 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
                 for window, target_column, threshold_column in zip(rolling_windows, target_columns, threshold_columns):
                     for n_try in range(3):
                         try:
-                            with _timeout(180):
+                            with _timeout(60):
                                 logging.info(f"Developing the {label_type} {window} day rolling window model for {emiten}")
                                 model, train_metrics, test_metrics = develop_model(prepared_data, target_column, positive_label, negative_label)
 
                                 logging.info(f"Saving the developed {label_type} {window} day rolling window model for {emiten}")
-                                _save_developed_model(model, label_type, emiten, f'{window}dd')
+                                _ = _save_developed_model(model, label_type, emiten, f'{window}dd')
 
                                 logging.info(f"Saving the developed {label_type} {window} day rolling window model's performance for {emiten}")
                                 train_test = _combine_train_test_metrics_into_single_df(emiten, train_metrics, test_metrics)
@@ -134,11 +132,6 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
                                 filename = f'database/modelPerformances/{to_camel(label_type)}/{window}dd-{developed_date}.csv'
                                 _ = _save_csv_file(train_test, filename)
 
-                                processed_emiten_path = f'database/processedEmitens/{developed_date}.txt'
-                                _  = _write_or_append_list_to_txt([emiten], processed_emiten_path, 'a')
-
-                                logging.info(f"Finished processing for Emiten: {emiten}")
-
                                 break
 
                         except TimeoutError as e:
@@ -146,18 +139,21 @@ def develop_models_for_selected_emiten(label_types: list, rolling_windows: list)
                                 logging.warning(f'Processed failed due to it being timed out, retrying the process ({n_try+2} out of 3 trials)')
                             else:
                                 raise TimeoutError(e)
+                                
+            processed_emiten_path = f'database/processedEmitens/{developed_date}.txt'
+            _  = _write_or_append_list_to_txt([emiten], processed_emiten_path, 'a')
+
+            logging.info(f"Finished processing for Emiten: {emiten}")                                
 
         except Exception as e:
             logging.warning(f"Failed processing for Emiten: {emiten}")
             logging.warning(f"An error occurred: {e}")
 
-            failed_emitens.append(emiten)
-                
-    failed_emiten_path = f'database/failedEmitens/{developed_date}.txt'
-    logging.info(f"Saving emitens that are failed being processed to {failed_emiten_path}")
-    _  = _write_or_append_list_to_txt(failed_emitens, failed_emiten_path, 'w')
+            failed_emiten_path = f'database/failedEmitens/{developed_date}.txt'
+            logging.info(f"Saving the emiten that failed being processed to {failed_emiten_path}")
+            _  = _write_or_append_list_to_txt([emiten], failed_emiten_path, 'a')
 
-    logging.info("List of failed stocks saved successfully")
+            logging.info("Successfully saved emiten that failed being processed")
 
     logging.info(f"===== Finished Model Development for Selected Emitens =====")
 
